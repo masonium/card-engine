@@ -1,5 +1,7 @@
+extern crate rand;
+
 pub mod germanwhist;
 pub mod cards;
 
-use germanwhist::engine::Round;
-use cards::suit;
+pub use germanwhist::engine::{Round, GameState, Action};
+use cards::{Suit, Rank};
