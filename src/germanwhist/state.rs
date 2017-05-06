@@ -118,6 +118,7 @@ impl<'a> PlayerViewMut<'a> {
 }
 
 pub struct PlayerView<'a> {
+    /// player's current hand
     hand: &'a Vec<BasicCard>,
 }
 

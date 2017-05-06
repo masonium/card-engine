@@ -1,7 +1,7 @@
 use cards::{BasicCard};
 
 use super::state::GameState;
-use super::phase::{GamePhase, FirstPhase};
+use super::phase::{GamePhase, PlayingPhase};
 
 #[derive(Clone, Debug)]
 pub struct Action {
@@ -26,7 +26,7 @@ pub struct Round {
 impl Round {
     pub fn new() -> Round {
         let (state, card) = GameState::new();
-        let phase: Option<Box<GamePhase>> = Some(Box::new(FirstPhase::new(card, 0)));
+        let phase: Option<Box<GamePhase>> = Some(Box::new(PlayingPhase::new(card, 0)));
         Round { state, phase: phase }
     }
 
