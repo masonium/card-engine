@@ -1,6 +1,6 @@
 use cards::{BasicCard};
 
-use super::state::GameState;
+use super::state::{GameState, PlayerView};
 use super::phase::{GamePhase, PlayingPhase};
 
 #[derive(Clone, Debug)]
@@ -17,21 +17,28 @@ pub enum ActionError {
     GameOver
 }
 
+pub type ScoringRules = (usize, usize);
+
+
 pub struct Round {
     state: GameState,
-
-    phase: Option<Box<GamePhase>>
+    phase: Option<Box<GamePhase>>,
+    rules: ScoringRules
 }
 
 impl Round {
-    pub fn new() -> Round {
-        let (state, card) = GameState::new();
-        let phase: Option<Box<GamePhase>> = Some(Box::new(PlayingPhase::new(card, 0)));
-        Round { state, phase: phase }
+    pub fn new<T: Into<Option<usize>>>(starting_player: T, rules: ScoringRules) -> Round {
+        let state = GameState::new(starting_player.into());
+        let phase: Option<Box<GamePhase>> = Some(Box::new(PlayingPhase{}));
+        Round { state, phase: phase, rules }
     }
 
     pub fn get_state(&self) -> &GameState {
         &self.state
+    }
+
+    pub fn active_player_view(&self) -> PlayerView {
+        self.state.player_view(self.state.active)
     }
 
     pub fn possible_actions(&self) -> Vec<Action> {
@@ -44,7 +51,7 @@ impl Round {
     }
 
     pub fn play_action(&mut self, action: Action) -> Result<(), ActionError> {
-        let rl = self.phase.as_mut().unwrap().on_action(&mut self.state, action)?;
+        let rl = self.phase.as_mut().unwrap().on_action(&mut self.state, &self.rules, action)?;
 
         if rl == 0 {
             self.phase = self.phase.as_mut().unwrap().transition(&mut self.state);

@@ -1,77 +1,31 @@
-use std::fmt::{self, Display, Formatter};
-use super::engine::{Action, ActionError};
+use super::engine::{Action, ScoringRules, ActionError};
 use super::state::{GameState};
-use cards::{BasicCard};
 
-pub trait GamePhase: Display {
+pub trait GamePhase {
     fn possible_actions(&self, gs: &GameState) -> Vec<Action>;
 
     /// perform action on a submitted, return rounds left in this state
-    fn on_action(&mut self, gs: &mut GameState, action: Action) -> Result<usize, ActionError>;
+    fn on_action(&mut self, gs: &mut GameState, rules: &ScoringRules, action: Action) -> Result<usize, ActionError>;
+
+    fn format(&self, gs: &GameState) -> String;
 
     /// ending the state
     fn transition(&mut self, gs: &mut GameState) -> Option<Box<GamePhase>>;
 }
 
-pub struct PlayingPhase {
-    /// card currently played
-    played: Option<BasicCard>,
-
-    /// player whose turn it is
-    active: usize,
-
-    /// number of rounds left in this phase
-    rounds_left: usize,
-
-    // currently revealed card, if any
-    revealed: Option<BasicCard>,
-}
-
-impl PlayingPhase {
-    pub fn new(first_card: BasicCard, player: usize) -> Self {
-        PlayingPhase { played: None, active: player,
-                       rounds_left: 26,
-                       revealed: Some(first_card) }
-    }
-}
-
-impl Display for PlayingPhase {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match (&self.revealed, &self.played) {
-            (&None, _) => {
-                write!(f, "End of Phase.")
-            },
-            (&Some(ref reveal), &Some(ref card)) => {
-                write!(f, "Playing for {}\nPlayer {} played {}, Player {} to respond.",
-                       reveal, 2 - self.active, card, self.active + 1)
-            },
-            (&Some(ref reveal), &None) => {
-                write!(f, "Playing for {}\nPlayer {} to open",
-                       reveal, self.active + 1)
-            }
-        }
-    }
-}
+pub struct PlayingPhase;
 
 impl GamePhase for PlayingPhase {
     /// Available actions
     fn possible_actions(&self, gs: &GameState) -> Vec<Action> {
-        let view = gs.player_view(self.active);
+        let view = gs.player_view(gs.active);
 
-        match &self.played {
-            // Second player must follow suit, if possible.
-            &Some(ref c) if view.has_suit(&c.suit) =>
-                view.iter().filter(|x| x.suit == c.suit)
-                .map(|c| Action { player: self.active, card: c.clone()}).collect()
-                ,
-            // Otherwise, can play anything
-            _ => view.iter().map(|c| Action { player: self.active, card: c.clone()}).collect(),
-        }
+        view.playable_cards().into_iter().map(|c| Action {player: gs.active, card: c}).collect()
     }
 
-    fn on_action(&mut self, gs: &mut GameState, action: Action) -> Result<usize, ActionError> {
-        if action.player != self.active {
-            return Err(ActionError::WrongPlayer(self.active));
+    fn on_action(&mut self, gs: &mut GameState, rules: &ScoringRules, action: Action) -> Result<usize, ActionError> {
+        if action.player != gs.active {
+            return Err(ActionError::WrongPlayer(gs.active));
         }
 
         // make sure the player owns the card
@@ -79,14 +33,14 @@ impl GamePhase for PlayingPhase {
             return Err(ActionError::MissingCard);
         }
 
-        if self.played.is_none() {
+        if gs.played.is_none() {
             /// this is the first card played
             gs.player_view_mut(action.player).remove_card(&action.card)?;
 
-            self.played = Some(action.card);
-            self.active = 1 - self.active;
+            gs.played = Some(action.card);
+            gs.active = 1 - gs.active;
         } else {
-            let leading_card = self.played.take().expect("on_action: already checked !is_none");
+            let leading_card = gs.played.take().expect("on_action: already checked !is_none");
             {
                 let mut player = gs.player_view_mut(action.player);
 
@@ -100,8 +54,8 @@ impl GamePhase for PlayingPhase {
                 player.remove_card(&action.card)?;
             }
 
-            let follow = self.active;
-            let lead = 1 - self.active;
+            let follow = gs.active;
+            let lead = 1 - gs.active;
 
             let winner = if gs.score_hand(&leading_card, &action.card).expect("cards must be distinct") {
                 lead
@@ -111,9 +65,9 @@ impl GamePhase for PlayingPhase {
             let loser = 1 - winner;
 
             // hand-building phase
-            if self.revealed.is_some() {
+            if gs.revealed.is_some() {
                 /// Give players their new cards
-                let r = self.revealed.take().expect("must be a revealed card");
+                let r = gs.revealed.take().expect("must be a revealed card");
                 gs.player_view_mut(winner).add_card(r);
 
                 let draw = gs.draw().expect("must have a card left after trick");
@@ -121,20 +75,40 @@ impl GamePhase for PlayingPhase {
 
                 // Draw a new card, if any
                 if gs.deck.num_cards_left() > 0 {
-                    self.revealed = gs.draw();
+                    gs.revealed = gs.draw();
                 }
+
+                gs.increment_score(winner, rules.0);
             }
             // scoring phase
             else {
-                gs.increment_score(winner, 1);
+                gs.increment_score(winner, rules.1);
             }
 
-            self.active = winner;
-            self.rounds_left -= 1;
+            gs.active = winner;
+            gs.rounds_left -= 1;
         }
 
-        Ok(self.rounds_left)
+        Ok(gs.rounds_left)
     }
+
+    fn format(&self, gs: &GameState) -> String {
+        match (&gs.revealed, &gs.played) {
+            (&None, _) => {
+                format!("End of Phase.")
+            },
+            (&Some(ref reveal), &Some(ref card)) => {
+                format!("Playing for {}\nPlayer {} played {}, Player {} to respond.",
+                       reveal, 2 - gs.active, card, gs.active + 1)
+            },
+            (&Some(ref reveal), &None) => {
+                format!("Playing for {}\nPlayer {} to open",
+                       reveal, gs.active + 1)
+            }
+        }
+    }
+
+
 
     /// Once we're done playing, finish.
     fn transition(&mut self, _: &mut GameState) -> Option<Box<GamePhase>> {
@@ -146,19 +120,17 @@ impl GamePhase for PlayingPhase {
 
 pub struct GameOverPhase;
 
-impl Display for GameOverPhase {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Game Over.")
-    }
-}
-
 impl GamePhase for GameOverPhase {
     fn possible_actions(&self, _: &GameState) -> Vec<Action> {
         Vec::new()
     }
 
-    fn on_action(&mut self, _: &mut GameState, _: Action) -> Result<usize, ActionError> {
+    fn on_action(&mut self, _: &mut GameState, _: &ScoringRules, _: Action) -> Result<usize, ActionError> {
         Err(ActionError::GameOver)
+    }
+
+    fn format(&self, _: &GameState) -> String {
+        format!("Game Over.")
     }
 
     fn transition(&mut self, _: &mut GameState) -> Option<Box<GamePhase>> {

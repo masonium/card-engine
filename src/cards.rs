@@ -1,5 +1,6 @@
 use std::fmt;
 use rand::{Rng, thread_rng};
+use std::slice::Iter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
@@ -60,6 +61,11 @@ pub enum Rank {
 }
 
 impl Rank {
+  pub fn iterator() -> Iter<'static, Rank> {
+      use Rank::*;
+      static RANKS: [Rank;  13] = [Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace];
+      RANKS.into_iter()
+    }
     /// Assign numerical values to each rank, with ace as high
     pub fn ord_ace_high(&self) -> u8 {
         *self as u8

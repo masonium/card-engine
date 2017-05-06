@@ -15,23 +15,39 @@ pub struct GameState {
     pub score: [usize; 2],
 
     /// trump suit
-    pub trump: Suit
+    pub trump: Suit,
+
+    /// card currently played
+    pub played: Option<BasicCard>,
+
+    /// player whose turn it is
+    pub active: usize,
+
+    /// number of rounds left in this phase
+    pub rounds_left: usize,
+
+    // currently revealed card, if any
+    pub revealed: Option<BasicCard>,
+
 }
 
 impl GameState {
     /// Create a new round
-    pub fn new() -> (GameState, BasicCard) {
+    pub fn new<T: Into<Option<usize>>>(player: T) -> GameState {
         let mut deck = BasicDeck::new();
         deck.shuffle();
 
-
         let hands = [deck.draw_n(13).unwrap(),
                      deck.draw_n(13).unwrap()];
-        let c = deck.draw().unwrap();
+        let c = deck.draw().expect("deck has 26 cards left");
         let trump = c.suit;
         let score = [0, 0];
+        let active: usize = player.into().unwrap_or(0);
+        let played = None;
+        let rounds_left = 26;
 
-        (GameState { deck, hands, score, trump }, c)
+        GameState { deck, hands, score, trump,
+                    active, played, rounds_left, revealed: Some(c) }
     }
 
     /// Return a mutable view of the player's hand.
@@ -41,7 +57,7 @@ impl GameState {
 
     /// Return an immutable view of the player's hand.
     pub fn player_view<'a>(&'a self, player: usize) -> PlayerView<'a> {
-        PlayerView { hand: &self.hands[player] }
+        PlayerView::from_state(player, &self)
     }
 
 
@@ -119,16 +135,65 @@ impl<'a> PlayerViewMut<'a> {
 
 pub struct PlayerView<'a> {
     /// player's current hand
-    hand: &'a Vec<BasicCard>,
+    hand: &'a [BasicCard],
+
+    pub player: usize,
+
+    pub revealed: Option<BasicCard>,
+    pub leading_card: Option<BasicCard>,
+
+    pub trump: Suit,
+
+    pub score: [usize; 2]
 }
 
 impl<'a> PlayerView<'a> {
+    pub fn from_state(player: usize, gs: &GameState) -> PlayerView {
+
+        PlayerView { player,
+                     hand: &gs.hands[player],
+                     revealed: gs.revealed.clone(),
+                     leading_card: gs.played.clone(),
+                     trump: gs.trump,
+                     score: gs.score.clone() }
+    }
+
+    /// Return the set of cards playable in the current state.
+    ///
+    /// Assumes the player is active.
+    pub fn playable_cards(&self) -> Vec<BasicCard> {
+        match &self.leading_card {
+            // Second player must follow suit, if possible.
+            &Some(ref c) if self.has_suit(&c.suit) =>
+                self.hand.iter().filter(|x| x.suit == c.suit)
+                .cloned().collect()
+                ,
+            // Otherwise, can play anything
+            _ => self.hand.iter().cloned().collect()
+        }
+    }
+
     pub fn has_card(&self, c: BasicCard) -> bool {
         self.hand.contains(&c)
     }
 
     pub fn has_suit(&self, s: &Suit) -> bool {
         self.hand.iter().any(|card| card.suit == *s)
+    }
+
+    pub fn ord_suit(&self, s: Suit) -> u8 {
+        s.ord() + if s == self.trump { 4 } else { 0 }
+    }
+
+    /// Return true if the following card  beats the leading card.
+    ///
+    /// When cards are equivalent, return false.
+    pub fn wins_against(&self, leading: &BasicCard, follow: &BasicCard) -> bool {
+        if follow.suit == leading.suit {
+            follow.rank.ord_ace_high() > leading.rank.ord_ace_high()
+        } else {
+            follow.suit == self.trump
+        }
     }
 
     pub fn iter(&self) -> slice::Iter<BasicCard> {
