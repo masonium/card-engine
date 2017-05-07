@@ -1,6 +1,17 @@
+use termion::color;
 use std::fmt;
 use rand::{Rng, thread_rng};
 use std::slice::Iter;
+use atty;
+
+#[derive(Debug, Clone, Copy)]
+pub enum ColorMode {
+    Plain,
+    RedBlack,
+    Unique
+}
+
+static mut SUIT_COLOR_MODE: ColorMode = ColorMode::Unique;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
@@ -33,12 +44,37 @@ impl Suit {
 impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Suit::*;
-        write!(f, "{}", match *self {
+
+
+        lazy_static! {
+            static ref RED: String = format!("{}", color::Fg(color::Red));
+            static ref GREEN: String = format!("{}", color::Fg(color::Green));
+            static ref BLUE: String = format!("{}", color::Fg(color::Blue));
+            static ref RESET: String = format!("{}", color::Fg(color::Reset));
+        }
+
+        let (begin, end) = unsafe {
+            match SUIT_COLOR_MODE {
+                ColorMode::Plain => ("", ""),
+                ColorMode::RedBlack => match self.color() {
+                    Color::Red => (RED.as_str(), RESET.as_str()),
+                    _ => ("", "")
+                },
+                ColorMode::Unique => match *self {
+                    Clubs => (GREEN.as_str(), RESET.as_str()),
+                    Hearts => (RED.as_str(), RESET.as_str()),
+                    Diamonds => (BLUE.as_str(), RESET.as_str()),
+                    _ => ("", "")
+                }
+            }
+        };
+
+        write!(f, "{}{}{}", begin, match *self {
             Clubs => "♣",
             Diamonds => "♦",
             Hearts => "♥",
             Spades => "♠"
-        })
+        }, end)
     }
 }
 
@@ -61,10 +97,10 @@ pub enum Rank {
 }
 
 impl Rank {
-  pub fn iterator() -> Iter<'static, Rank> {
-      use Rank::*;
-      static RANKS: [Rank;  13] = [Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace];
-      RANKS.into_iter()
+    pub fn iterator() -> Iter<'static, Rank> {
+        use Rank::*;
+        static RANKS: [Rank;  13] = [Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace];
+        RANKS.into_iter()
     }
     /// Assign numerical values to each rank, with ace as high
     pub fn ord_ace_high(&self) -> u8 {
@@ -194,4 +230,14 @@ impl BasicDeck {
         }
     }
 
+}
+
+pub fn auto_suit_colors() {
+    unsafe {
+        SUIT_COLOR_MODE = if atty::is(atty::Stream::Stdout) {
+            ColorMode::Unique
+        } else {
+            ColorMode::Plain
+        }
+    }
 }

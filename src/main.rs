@@ -1,12 +1,15 @@
 extern crate card_engine;
 extern crate rand;
+extern crate ndarray;
 
 use card_engine::{Round, Action, ActionError};
-use card_engine::cards::{BasicCard, Rank, Suit};
+use card_engine::cards::{self, BasicCard, Rank, Suit};
 use card_engine::germanwhist::util::*;
 use card_engine::germanwhist::PlayerView;
+use card_engine::{NeuralNet, LayerDesc, OutputFunction};
 use rand::{thread_rng};
 use rand::distributions::{IndependentSample, Range};
+use ndarray::Array;
 
 trait Player {
     /// Return a card to play, based on the current view of the world.
@@ -84,7 +87,7 @@ impl Player for BasicPlayer {
 
 /// Randomly choose actions at each play
 fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usize; 2], ActionError> {
-    let mut round = Round::new(start, (1, 2));
+    let mut round = Round::new(start, (0, 1));
 
     if verbose {
         println!("{}", format_round(&round));
@@ -108,7 +111,7 @@ fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usi
 
         round.play_action(action)?;
 
-        if verbose {
+        if verbose && round.get_state().played.is_none() {
             println!("**************");
             println!("{}", format_round(&round));
         }
@@ -134,17 +137,23 @@ fn test_basic_player(r: Option<Rank>) -> [usize; 2] {
 }
 
 fn main() {
+    cards::auto_suit_colors();
 
-    for r in Rank::iterator() {
-        let games_won = test_basic_player(Some(r.clone()));
+    // for r in Rank::iterator() {
+    //     let games_won = test_basic_player(Some(r.clone()));
 
-        println!("Player 1 Record, Rank {}: {}-{}", r, games_won[0], games_won[1]);
-    }
+    //     println!("Player 1 Record, Rank {}: {}-{}", r, games_won[0], games_won[1]);
+    // }
 
-    let games_won = test_basic_player(None);
+    // let games_won = test_basic_player(None);
 
-    println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
+    // println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
+    //play_random_game(0, Some(Rank::Ace), true);
 
+    let arr = Array::from_elem(10, 1.0);
+
+    let nn = NeuralNet::new(&[LayerDesc::new(10, 2, OutputFunction::Linear)]).unwrap();
+    println!("{:?}", nn.evaluate(&arr));
 }
 
 
