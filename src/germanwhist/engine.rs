@@ -9,6 +9,21 @@ pub struct Action {
     pub card: BasicCard
 }
 
+pub type ActionEvent = Action;
+
+#[derive(Clone, Debug)]
+pub struct TrickEvent {
+    pub leading_player: usize,
+    pub cards: [BasicCard; 2],
+    pub score: [usize; 2]
+}
+
+#[derive(Clone, Debug)]
+pub struct CardEvent {
+    pub player: usize,
+    pub card: BasicCard
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum ActionError {
     WrongPlayer(usize),
@@ -17,13 +32,20 @@ pub enum ActionError {
     GameOver
 }
 
+#[derive(Debug)]
+pub enum GameEvent {
+    Action(Action),
+    Trick(TrickEvent),
+    Card(CardEvent)
+}
+
 pub type ScoringRules = (usize, usize);
 
-
+/// Game engine for a round of German Whist
 pub struct Round {
     state: GameState,
     phase: Option<Box<GamePhase>>,
-    rules: ScoringRules
+    rules: ScoringRules,
 }
 
 impl Round {
@@ -50,13 +72,13 @@ impl Round {
         self.phase.as_ref().unwrap().borrow()
     }
 
-    pub fn play_action(&mut self, action: Action) -> Result<(), ActionError> {
-        let rl = self.phase.as_mut().unwrap().on_action(&mut self.state, &self.rules, action)?;
+    pub fn play_action(&mut self, action: Action) -> Result<[Vec<GameEvent>; 2], ActionError> {
+        let events = self.phase.as_mut().unwrap().on_action(&mut self.state, &self.rules, action)?;
 
-        if rl == 0 {
+        if self.state.rounds_left == 0 {
             self.phase = self.phase.as_mut().unwrap().transition(&mut self.state);
         }
 
-        Ok(())
+        Ok(events)
     }
 }

@@ -2,16 +2,17 @@ extern crate card_engine;
 extern crate rand;
 extern crate ndarray;
 
-use card_engine::{Round, Action, ActionError};
+use card_engine::{GameEvent, Round, Action, ActionError};
 use card_engine::cards::{self, BasicCard, Rank, Suit};
 use card_engine::germanwhist::util::*;
 use card_engine::germanwhist::PlayerView;
-use card_engine::{NeuralNet, LayerDesc, OutputFunction};
+// use card_engine::{NeuralNet, LayerDesc, OutputFunction};
 use rand::{thread_rng};
 use rand::distributions::{IndependentSample, Range};
-use ndarray::Array;
 
 trait Player {
+    fn on_game_action(&mut self, ev: &GameEvent) { }
+
     /// Return a card to play, based on the current view of the world.
     fn play_card(&self, view: &PlayerView) -> BasicCard;
 }
@@ -122,6 +123,7 @@ fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usi
     Ok(round.get_state().score.clone())
 }
 
+#[allow(unused)]
 fn test_basic_player(r: Option<Rank>) -> [usize; 2] {
     let mut games_won = [0, 0];
     let mut starting_player: usize = 0;
@@ -139,21 +141,16 @@ fn test_basic_player(r: Option<Rank>) -> [usize; 2] {
 fn main() {
     cards::auto_suit_colors();
 
-    // for r in Rank::iterator() {
-    //     let games_won = test_basic_player(Some(r.clone()));
+    for r in Rank::iterator() {
+        let games_won = test_basic_player(Some(r.clone()));
 
-    //     println!("Player 1 Record, Rank {}: {}-{}", r, games_won[0], games_won[1]);
-    // }
+        println!("Player 1 Record, Rank {}: {}-{}", r, games_won[0], games_won[1]);
+    }
 
-    // let games_won = test_basic_player(None);
+    let games_won = test_basic_player(None);
 
-    // println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
-    //play_random_game(0, Some(Rank::Ace), true);
-
-    let arr = Array::from_elem(10, 1.0);
-
-    let nn = NeuralNet::new(&[LayerDesc::new(10, 2, OutputFunction::Linear)]).unwrap();
-    println!("{:?}", nn.evaluate(&arr));
+    println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
+    play_random_game(0, Some(Rank::Ace), true);
 }
 
 

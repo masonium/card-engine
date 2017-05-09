@@ -1,11 +1,12 @@
 use super::engine::{Action, ScoringRules, ActionError};
 use super::state::{GameState};
+use super::engine::{CardEvent, TrickEvent, GameEvent};
 
 pub trait GamePhase {
     fn possible_actions(&self, gs: &GameState) -> Vec<Action>;
 
     /// perform action on a submitted, return rounds left in this state
-    fn on_action(&mut self, gs: &mut GameState, rules: &ScoringRules, action: Action) -> Result<usize, ActionError>;
+    fn on_action(&mut self, gs: &mut GameState, rules: &ScoringRules, action: Action) -> Result<[Vec<GameEvent>; 2], ActionError>;
 
     fn format(&self, gs: &GameState) -> String;
 
@@ -23,7 +24,7 @@ impl GamePhase for PlayingPhase {
         view.playable_cards().into_iter().map(|c| Action {player: gs.active, card: c}).collect()
     }
 
-    fn on_action(&mut self, gs: &mut GameState, rules: &ScoringRules, action: Action) -> Result<usize, ActionError> {
+    fn on_action(&mut self, gs: &mut GameState, rules: &ScoringRules, action: Action) -> Result<[Vec<GameEvent>; 2], ActionError> {
         if action.player != gs.active {
             return Err(ActionError::WrongPlayer(gs.active));
         }
@@ -33,11 +34,17 @@ impl GamePhase for PlayingPhase {
             return Err(ActionError::MissingCard);
         }
 
+        let mut events = [Vec::new(), Vec::new()];
+
         if gs.played.is_none() {
             /// this is the first card played
             gs.player_view_mut(action.player).remove_card(&action.card)?;
 
+            events[0].push(GameEvent::Action(action.clone()));
+            events[1].push(GameEvent::Action(action.clone()));
+
             gs.played = Some(action.card);
+
             gs.active = 1 - gs.active;
         } else {
             let leading_card = gs.played.take().expect("on_action: already checked !is_none");
@@ -54,6 +61,9 @@ impl GamePhase for PlayingPhase {
                 player.remove_card(&action.card)?;
             }
 
+            events[0].push(GameEvent::Action(action.clone()));
+            events[1].push(GameEvent::Action(action.clone()));
+
             let follow = gs.active;
             let lead = 1 - gs.active;
 
@@ -64,14 +74,28 @@ impl GamePhase for PlayingPhase {
             };
             let loser = 1 - winner;
 
+            let mut trick = TrickEvent{ leading_player: lead,
+                                        cards: [leading_card.clone(), action.card.clone()],
+                                        score: [0, 0] };
+            if lead == 1 {
+                trick.cards.swap(0, 1);
+            }
+
             // hand-building phase
             if gs.revealed.is_some() {
                 /// Give players their new cards
-                let r = gs.revealed.take().expect("must be a revealed card");
-                gs.player_view_mut(winner).add_card(r);
+                {
+                    let r = gs.revealed.take().expect("must be a revealed card");
+                    gs.player_view_mut(winner).add_card(r.clone());
 
-                let draw = gs.draw().expect("must have a card left after trick");
-                gs.player_view_mut(loser).add_card(draw);
+                    events[loser].push(GameEvent::Card(CardEvent{ player: loser, card: r.clone()}));
+                }
+
+                {
+                    let draw = gs.draw().expect("must have a card left after trick");
+                    gs.player_view_mut(loser).add_card(draw.clone());
+                    events[winner].push(GameEvent::Card(CardEvent{ player: winner, card: draw.clone()}));
+                }
 
                 // Draw a new card, if any
                 if gs.deck.num_cards_left() > 0 {
@@ -79,17 +103,21 @@ impl GamePhase for PlayingPhase {
                 }
 
                 gs.increment_score(winner, rules.0);
+                trick.score[winner] = rules.0;
             }
             // scoring phase
             else {
                 gs.increment_score(winner, rules.1);
+                trick.score[winner] = rules.1;
             }
 
             gs.active = winner;
             gs.rounds_left -= 1;
+            events[0].push(GameEvent::Trick(trick.clone()));
+            events[1].push(GameEvent::Trick(trick));
         }
 
-        Ok(gs.rounds_left)
+        Ok(events)
     }
 
     fn format(&self, gs: &GameState) -> String {
@@ -125,7 +153,7 @@ impl GamePhase for GameOverPhase {
         Vec::new()
     }
 
-    fn on_action(&mut self, _: &mut GameState, _: &ScoringRules, _: Action) -> Result<usize, ActionError> {
+    fn on_action(&mut self, _: &mut GameState, _: &ScoringRules, _: Action) -> Result<[Vec<GameEvent>; 2], ActionError> {
         Err(ActionError::GameOver)
     }
 

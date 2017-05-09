@@ -139,7 +139,7 @@ impl fmt::Display for Rank {
 }
 
 /// Normal non-joker playing card
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct BasicCard {
     pub rank: Rank,
     pub suit: Suit

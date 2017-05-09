@@ -14,7 +14,7 @@ pub mod germanwhist;
 pub mod cards;
 pub mod learning;
 
-pub use germanwhist::engine::{Round, Action, ActionError};
+pub use germanwhist::engine::{GameEvent, Round, Action, ActionError};
 pub use germanwhist::state::{GameState};
 pub use learning::neural_net::{NeuralNet, LayerDesc, OutputFunction};
 use cards::{Suit, Rank};
