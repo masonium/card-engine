@@ -1,10 +1,13 @@
 extern crate rand;
 extern crate termion;
+
 #[macro_use]
 extern crate lazy_static;
 extern crate atty;
 extern crate ndarray;
 extern crate ndarray_rand;
+
+#[macro_use]
 extern crate itertools;
 
 pub mod germanwhist;

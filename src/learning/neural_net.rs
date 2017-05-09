@@ -1,5 +1,5 @@
 use ndarray::prelude::*;
-use ndarray::{Data, DataMut};
+use ndarray::{Data, DataMut, Zip};
 use ndarray_rand::RandomExt;
 use rand::distributions::Range;
 use itertools::{Itertools};
@@ -13,6 +13,11 @@ pub enum OutputFunction {
 fn activate_linear(f: f32) -> f32 { f }
 fn activate_logistic(f: f32) -> f32 { 1.0 / (1.0 + (-f).exp()) }
 
+fn grad_linear(_: f32, _g: f32) -> f32 { 1.0 }
+fn grad_logistic(_f: f32, g: f32) -> f32 {
+    g * (1.0 - g)
+}
+
 impl OutputFunction {
     fn af(&self) -> (fn(f32) -> f32) {
         use self::OutputFunction::*;
@@ -21,6 +26,15 @@ impl OutputFunction {
             Logistic => activate_logistic
         }
     }
+
+    fn agf(&self) -> (fn(f32, f32) -> f32) {
+        use self::OutputFunction::*;
+        match *self {
+            Linear => grad_linear,
+            Logistic => grad_logistic
+        }
+    }
+
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -46,15 +60,59 @@ impl LayerDesc {
 struct Layer {
     m: Array2<f32>,
     bias: Array1<f32>,
-    act: OutputFunction
+    act: OutputFunction,
+
+    dm: Array2<f32>,
+    dbias: Array1<f32>,
+
+    //x: Array1<f32>
+}
+
+/// take the outer-product of a and b, applying it to c
+fn outer_product<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix2>,
+                             a: &ArrayBase<Ta, Ix1>,
+                             b: &ArrayBase<Tb, Ix1>)
+    where Ta: Data<Elem=f32>, Tb: Data<Elem=f32>, Tc: DataMut<Elem=f32> {
+    for (mut row, ai) in izip!(c.outer_iter_mut(), a) {
+        assert_eq!(row.dim(), b.dim());
+        Zip::from(&mut row).and(b).apply(|r, bi| *r = *ai * *bi);
+    }
+}
+
+// Quick matrix-vector multiplication
+// c = A * b
+#[allow(unused)]
+fn mat_vec_mul<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix1>,
+                           a: &ArrayBase<Ta, Ix2>,
+                           b: &ArrayBase<Tb, Ix1>)
+    where Ta: Data<Elem=f32>, Tb: Data<Elem=f32>, Tc: DataMut<Elem=f32> {
+    for (ci, ar) in izip!(c, a.outer_iter()) {
+        *ci = ar.dot(b);
+    }
+}
+
+// c = A^t * b
+fn mat_t_vec_mul<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix1>,
+                           a: &ArrayBase<Ta, Ix2>,
+                           b: &ArrayBase<Tb, Ix1>)
+    where Ta: Data<Elem=f32>, Tb: Data<Elem=f32>, Tc: DataMut<Elem=f32> {
+
+    for (ci, ar) in izip!(c, a.axis_iter(Axis(1))) {
+        *ci = ar.dot(b);
+    }
 }
 
 impl Layer {
     pub fn from_desc(desc: &LayerDesc) -> Layer {
         let m = Array::random((desc.num_outputs, desc.num_inputs), Range::new(-0.01, 0.01));
         let bias = Array::zeros( desc.num_outputs );
+        //let x = Array::zeros( desc.num_outputs );
 
-        Layer { m, bias, act: desc.activation }
+        let dm = Array::zeros((desc.num_outputs, desc.num_inputs));
+        let dbias = Array::zeros(desc.num_outputs);
+
+        Layer { m, bias, //x,
+                dm, dbias, act: desc.activation }
     }
 
     pub fn num_inputs(&self) -> usize {
@@ -71,7 +129,7 @@ impl Layer {
 
         where T1: Data<Elem=f32>, T2: DataMut<Elem=f32> {
         let f = self.act.af();
-        for ((a, r), b) in output.iter_mut().zip(self.m.outer_iter()).zip(&self.bias) {
+        for (a, r, b) in izip!(output.iter_mut(), self.m.outer_iter(), &self.bias) {
             *a = f(r.dot(input) + b);
         }
     }
@@ -83,6 +141,57 @@ impl Layer {
         arr
     }
 
+    pub fn evaluate_onto_partial_g<T1, T2>(&mut self,
+                                           input: &ArrayBase<T1, Ix1>,
+                                           output: &mut ArrayBase<T2, Ix1>)
+
+        where T1: Data<Elem=f32>, T2: DataMut<Elem=f32> {
+        let f = self.act.af();
+        let g = self.act.agf();
+
+        for (a, r, b, x) in izip!(output.iter_mut(), self.m.outer_iter(), &self.bias, &mut self.dbias) {
+            let pa = r.dot(input) + b;
+            *a = f(pa);
+            *x = g(pa, *a);
+        }
+
+        // compute the gradient of the weights, with respect to the outputs
+        outer_product(&mut self.dm, &self.dbias, input);
+    }
+
+    pub fn evaluate_partial_g<T1>(&mut self, input: &ArrayBase<T1, Ix1>) -> Array1<f32>
+        where T1: Data<Elem=f32> {
+        let mut arr = Array::zeros(self.bias.dim());
+        self.evaluate_onto_partial_g(input, &mut arr);
+        arr
+    }
+
+    /// Complete the evaluation of the gradient, taking in the
+    /// gradient with respect to the outputs.
+    fn complete_g<T: Data<Elem=f32>>(&mut self, dout: &ArrayBase<T, Ix1>) -> Array1<f32> {
+        assert_eq!(dout.dim(), self.num_outputs());
+
+        // We assume that we previously called evaluate*_partial_g. Now, we finish.
+        // Finish gradient w/rt weight
+        for (mut row, di) in self.dm.outer_iter_mut().zip(dout) {
+            for x in row.iter_mut() {
+                *x *= *di;
+            }
+        }
+
+        // Finish gradient w/rt bias
+        Zip::from(&mut self.dbias).and(dout).apply(|a, b| *a *= *b);
+
+        let mut din = Array::zeros(self.num_inputs());
+        mat_t_vec_mul(&mut din, &self.dm, dout);
+        din
+    }
+
+    /// Apply the gradient
+    fn gradient_step(&mut self, rate: f32) {
+        Zip::from(&mut self.m).and(&self.dm).apply(|a, da| *a += da * rate);
+        Zip::from(&mut self.bias).and(&self.dbias).apply(|a, da| *a += da * rate);
+    }
 }
 
 pub struct NeuralNet {
@@ -95,7 +204,7 @@ impl NeuralNet {
         if layers.iter().tuple_windows::<(_,_)>()
             .any(|(d1, d2)| { d1.num_outputs == d2.num_inputs }) {
                 return None;
-        }
+            }
 
         Some(NeuralNet { layers: layers.iter().map(Layer::from_desc).collect() })
     }
@@ -117,9 +226,26 @@ impl NeuralNet {
         self.layers.iter().fold(input.to_owned(), |x, layer| layer.evaluate(&x))
     }
 
-    pub fn gradient_descent_step<T1>(&self, input: &ArrayBase<T1, Ix1>, output: &ArrayBase<T1, Ix1>, rate: f32) -> f32
+    /// Evaluate, and internally store the gradient.
+    pub fn evaluate_with_gradient<T1>(&mut self, input: &ArrayBase<T1, Ix1>) -> Array1<f32>
         where T1: Data<Elem=f32> {
-        0.0
+        assert_eq!(input.dim(), self.layers[0].num_inputs());
+
+        let output = self.layers.iter_mut()
+            .fold(input.to_owned(), |x, layer| layer.evaluate_partial_g(&x));
+
+        let dout = Array::from_elem(self.num_outputs(), 1.0);
+        self.layers.iter_mut().rev()
+            .fold(dout, |x, layer| layer.complete_g(&x));
+
+        output
+    }
+
+    /// Move all weights by a factor of alpha * grad(x)
+    pub fn gradient_step(&mut self, rate: f32) {
+        for layer in self.layers.iter_mut() {
+            layer.gradient_step(rate);
+        }
     }
 }
 
