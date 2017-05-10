@@ -2,6 +2,7 @@
 name = "card-engine"
 version = "0.1.0"
 authors = ["Mason Smith <masonium@gmail.com>"]
+license = "MIT"
 
 [dependencies]
 rand = "*"
