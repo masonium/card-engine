@@ -1,0 +1,9 @@
+* Interface
+  - [ ] add 'Human player', taking input
+* Features
+ - [ ] Hand model / hand state
+ - [ ] Oppenent model (Card probabilities)
+* RL
+ - check neural network
+ - [ ] Sarsa
+ - [ ] TD(λ)
