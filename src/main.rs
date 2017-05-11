@@ -11,7 +11,7 @@ use rand::{thread_rng};
 use rand::distributions::{IndependentSample, Range};
 
 trait Player {
-    fn on_game_action(&mut self, ev: &GameEvent) { }
+    fn on_game_action(&mut self, _ev: &GameEvent) { }
 
     /// Return a card to play, based on the current view of the world.
     fn play_card(&self, view: &PlayerView) -> BasicCard;

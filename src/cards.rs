@@ -5,13 +5,15 @@ use std::slice::Iter;
 use atty;
 
 #[derive(Debug, Clone, Copy)]
+#[repr(usize)]
 pub enum ColorMode {
-    Plain,
-    RedBlack,
-    Unique
+    Plain = 0,
+    RedBlack = 1,
+    Unique = 2
 }
 
 static mut SUIT_COLOR_MODE: ColorMode = ColorMode::Unique;
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
@@ -20,7 +22,7 @@ pub enum Color {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Suit {
     Clubs = 0,
     Diamonds = 1,
@@ -79,7 +81,7 @@ impl fmt::Display for Suit {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Rank {
     Two = 2,
     Three = 3,
@@ -139,7 +141,7 @@ impl fmt::Display for Rank {
 }
 
 /// Normal non-joker playing card
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BasicCard {
     pub rank: Rank,
     pub suit: Suit
