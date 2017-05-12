@@ -154,11 +154,9 @@ fn main() {
     play_random_game(0, Some(Rank::Ace), true);
 
     let mut b = PlayerBelief::new();
-    b.card_seen(&"2♠".parse().unwrap());
+    //b.card_seen(&"2♠".parse().unwrap());
     b.card_drawn(&"3♣".parse().unwrap());
-    for _ in 0..4 {
-        b.random_card_drawn();
-    }
+    b.random_cards_drawn(4);
     b.dump_probabilities();
 }
 
