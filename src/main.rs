@@ -6,6 +6,7 @@ use card_engine::{GameEvent, Round, Action, ActionError};
 use card_engine::cards::{self, BasicCard, Rank, Suit};
 use card_engine::germanwhist::util::*;
 use card_engine::germanwhist::PlayerView;
+use card_engine::germanwhist::PlayerBelief;
 // use card_engine::{NeuralNet, LayerDesc, OutputFunction};
 use rand::{thread_rng};
 use rand::distributions::{IndependentSample, Range};
@@ -128,7 +129,7 @@ fn test_basic_player(r: Option<Rank>) -> [usize; 2] {
     let mut games_won = [0, 0];
     let mut starting_player: usize = 0;
 
-    for _ in 0..10000 {
+    for _ in 0..10 {
         let score = play_random_game(starting_player, r, false).expect("bad game");
         let winner: usize = if score[0] > score[1]  { 0 } else { 1 };
         games_won[winner] += 1;
@@ -151,6 +152,14 @@ fn main() {
 
     println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
     play_random_game(0, Some(Rank::Ace), true);
+
+    let mut b = PlayerBelief::new();
+    b.card_seen(&"2♠".parse().unwrap());
+    b.card_drawn(&"3♣".parse().unwrap());
+    for _ in 0..4 {
+        b.random_card_drawn();
+    }
+    b.dump_probabilities();
 }
 
 
