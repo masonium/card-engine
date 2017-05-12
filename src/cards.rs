@@ -1,4 +1,5 @@
 use termion::color;
+use std::str::FromStr;
 use std::fmt;
 use rand::{Rng, thread_rng};
 use std::slice::Iter;
@@ -31,6 +32,13 @@ pub enum Suit {
 }
 
 impl Suit {
+    /// iterate through all elements of suit
+    pub fn iterator() -> Iter<'static, Suit> {
+        use Suit::*;
+        static ALL_SUITS: [Suit; 4] = [Clubs, Diamonds, Hearts, Spades];
+        ALL_SUITS.into_iter()
+    }
+
     pub fn color(&self) -> Color {
         match *self {
             Suit::Diamonds | Suit::Hearts => Color::Red,
@@ -40,6 +48,27 @@ impl Suit {
 
     pub fn ord(&self) -> u8 {
         *self as u8
+    }
+}
+
+#[derive(Debug)]
+pub enum CardParseError {
+    BadSuit,
+    BadRank
+}
+
+impl FromStr for Suit {
+    type Err = CardParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use Suit::*;
+        use self::CardParseError::*;
+        match s {
+            "♣" => Ok(Clubs),
+            "♦" => Ok(Hearts),
+            "♥" => Ok(Diamonds),
+            "♠" => Ok(Spades),
+            _ => Err(BadSuit)
+        }
     }
 }
 
@@ -119,6 +148,31 @@ impl Rank {
     }
 }
 
+impl FromStr for Rank {
+    type Err = CardParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use Rank::*;
+        use self::CardParseError::*;
+        match s {
+            "2" => Ok(Two),
+            "3" => Ok(Three),
+            "4" => Ok(Four),
+            "5" => Ok(Five),
+            "6" => Ok(Six),
+            "7" => Ok(Seven),
+            "8" => Ok(Eight),
+            "9" => Ok(Nine),
+            "T" => Ok(Ten),
+            "J" => Ok(Jack),
+            "Q" => Ok(Queen),
+            "K" => Ok(King),
+            "A" => Ok(Ace),
+            _ => Err(BadRank)
+        }
+    }
+}
+
+
 impl fmt::Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Rank::*;
@@ -151,18 +205,26 @@ impl BasicCard {
     /// Returns a Vec of all 52 possible `BasicCard`s, in
     /// some unspecified order.
     pub fn all() -> Vec<BasicCard> {
-        use Rank::*;
         use Suit::*;
 
         let mut cards = Vec::with_capacity(52);
-        for rank in &[Two, Three, Four, Five, Six, Seven, Eight,
-                      Nine, Ten, Jack, Queen, King, Ace] {
+        for rank in Rank::iterator() {
             for suit in &[Clubs, Diamonds, Hearts, Spades] {
                 cards.push(BasicCard { rank: *rank, suit: *suit })
             }
         }
 
         cards
+    }
+}
+
+impl FromStr for BasicCard {
+    type Err = CardParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let (rank_str, suit_str) = s.split_at(1);
+        let rank = rank_str.parse()?;
+        let suit = suit_str.parse()?;
+        Ok(BasicCard { rank, suit })
     }
 }
 
