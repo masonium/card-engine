@@ -3,13 +3,14 @@ extern crate rand;
 extern crate ndarray;
 
 use card_engine::{GameEvent, Round, Action, ActionError};
-use card_engine::cards::{self, BasicCard, Rank, Suit};
+use card_engine::cards::{self, BasicCard, Rank, Suit, NUM_BASIC_CARDS};
 use card_engine::germanwhist::util::*;
 use card_engine::germanwhist::PlayerView;
 use card_engine::germanwhist::PlayerBelief;
 // use card_engine::{NeuralNet, LayerDesc, OutputFunction};
 use rand::{thread_rng};
 use rand::distributions::{IndependentSample, Range};
+use ndarray::prelude::*;
 
 trait Player {
     fn on_game_action(&mut self, _ev: &GameEvent) { }
@@ -142,16 +143,16 @@ fn test_basic_player(r: Option<Rank>) -> [usize; 2] {
 fn main() {
     cards::auto_suit_colors();
 
-    for r in Rank::iterator() {
-        let games_won = test_basic_player(Some(r.clone()));
+    // for r in Rank::iterator() {
+    //     let games_won = test_basic_player(Some(r.clone()));
 
-        println!("Player 1 Record, Rank {}: {}-{}", r, games_won[0], games_won[1]);
-    }
+    //     println!("Player 1 Record, Rank {}: {}-{}", r, games_won[0], games_won[1]);
+    // }
 
-    let games_won = test_basic_player(None);
+    // let games_won = test_basic_player(None);
 
-    println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
-    play_random_game(0, Some(Rank::Ace), true);
+    // println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
+    // play_random_game(0, Some(Rank::Ace), true);
 
     let mut b = PlayerBelief::new();
     b.random_cards_drawn(13);
@@ -161,6 +162,9 @@ fn main() {
     b.random_cards_drawn(1);
     b.print_probabilities();
 
+    let mut v = Array::zeros(NUM_BASIC_CARDS);
+    b.onto_vector(&mut v, &[Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs]);
+    println!("{}", v);
 }
 
 

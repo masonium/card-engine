@@ -253,6 +253,8 @@ impl fmt::Display for Card {
     }
 }
 
+pub const NUM_BASIC_CARDS: usize = 52;
+
 /// Deck of 52 basic (non-joker) cards
 #[derive(Debug)]
 pub struct BasicDeck {

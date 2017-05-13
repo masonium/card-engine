@@ -1,8 +1,10 @@
 /// modules for storing player and opponent model
 use std::collections::HashMap;
-use cards::{BasicCard, Suit, print_card_map};
+use cards::{BasicCard, Suit, Rank, print_card_map, NUM_BASIC_CARDS};
 use std::fmt;
 use std::cmp;
+use ndarray::prelude::*;
+use ndarray::DataMut;
 
 /// A `CardState` is an internal tracker for the likelihood of a
 /// specific card.
@@ -53,12 +55,6 @@ impl CardState {
     }
 }
 
-/// A `PlayerBelief` object represents the best estimate of the
-/// probabilities of holding a specific card.
-pub struct PlayerBelief {
-    probs: HashMap<BasicCard, CardState>,
-}
-
 impl fmt::Display for CardState {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         use self::CardState::*;
@@ -71,6 +67,21 @@ impl fmt::Display for CardState {
             Prob(p) => write!(fmt, "{:.1$}", p, w-2)
         }
     }
+}
+
+/// A `PlayerBelief` object represents the best estimate of the
+/// probabilities of holding a specific card.
+///
+/// This struct assumes that all actions affecting the hand (picking
+/// up, discarding, playing cards) are public, even if the precise
+/// cards aren't. For instance, this module would be invalid if the
+/// player could pick up a secret number of cards.
+///
+/// `PlayerBelief` is game-agnostic, and does not generally try to
+/// model any game-specific knowledge. Estimates are generally
+/// max-entropy in that sense.
+pub struct PlayerBelief {
+    probs: HashMap<BasicCard, CardState>,
 }
 
 impl PlayerBelief {
@@ -93,6 +104,11 @@ impl PlayerBelief {
     /// Return the probability that the player has the card.
     pub fn has_card(&mut self, card: &BasicCard) -> f32 {
         self.probs.get(card).expect("All basic cards should be in probability map.").p()
+    }
+
+    /// Return the total number of cards held by the player
+    pub fn num_cards(&self) -> f32 {
+        self.probs.values().map(|v| v.p()).sum()
     }
 
     /// Increase the probability of each card in probability status,
@@ -181,5 +197,15 @@ impl PlayerBelief {
     pub fn card_seen(&mut self, card: &BasicCard) {
         self.transfer_probability_to(|c| c != *card);
         self.probs.insert(*card, CardState::Played);
+    }
+
+    /// Write the probabilities onto a vector in the given suit order.
+    pub fn onto_vector<T: DataMut<Elem=f32>>(&self, vec: &mut ArrayBase<T, Ix1>, suit_order: &[Suit]) {
+        assert_eq!(vec.dim(), NUM_BASIC_CARDS);
+
+        for ((suit, rank), v) in izip!(iproduct!(suit_order, Rank::iterator()), vec.iter_mut()) {
+            let card = BasicCard{suit: *suit, rank: *rank};
+            *v = self.probs.get(&card).map(|v| v.p()).unwrap_or(0.0);
+        }
     }
 }
