@@ -5,36 +5,51 @@ use rand::distributions::Range;
 use itertools::{Itertools};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum OutputFunction {
+pub enum ActivationFunction {
     Linear,
-    Logistic
+    Sigmoid,
+    SymmetricSigmoid,
+    ReLU
 }
 
-fn activate_linear(f: f32) -> f32 { f }
-fn activate_logistic(f: f32) -> f32 { 1.0 / (1.0 + (-f).exp()) }
+fn activate_linear(x: f32) -> f32 { x }
+fn activate_logistic(x: f32) -> f32 { 1.0 / (1.0 + (-x).exp()) }
+const SS_FSCALE: f32 = 1.7159;
+const SS_XSCALE: f32 = 2.0/3.0;
+fn activate_ss(x: f32) -> f32 { SS_FSCALE * (SS_XSCALE * x).tanh() }
+fn activate_relu(x: f32) -> f32 { if x > 0.0 { x } else { 0.0} }
 
-fn grad_linear(_: f32, _g: f32) -> f32 { 1.0 }
-fn grad_logistic(_f: f32, g: f32) -> f32 {
-    g * (1.0 - g)
+fn grad_linear(_x: f32, _f: f32) -> f32 { 1.0 }
+fn grad_logistic(_x: f32, f: f32) -> f32 {
+    f * (1.0 - f)
+}
+fn grad_ss(_x: f32, f: f32) -> f32 {
+    SS_XSCALE * (SS_FSCALE - f * f/ SS_FSCALE)
+}
+fn grad_relu(x: f32, _f: f32) -> f32 {
+    if x >= 0.0 { 1.0 } else { 0.0 }
 }
 
-impl OutputFunction {
+impl ActivationFunction {
     fn af(&self) -> (fn(f32) -> f32) {
-        use self::OutputFunction::*;
+        use self::ActivationFunction::*;
         match *self {
             Linear => activate_linear,
-            Logistic => activate_logistic
+            Sigmoid => activate_logistic,
+            SymmetricSigmoid => activate_ss,
+            ReLU => activate_relu
         }
     }
 
     fn agf(&self) -> (fn(f32, f32) -> f32) {
-        use self::OutputFunction::*;
+        use self::ActivationFunction::*;
         match *self {
             Linear => grad_linear,
-            Logistic => grad_logistic
+            Sigmoid => grad_logistic,
+            SymmetricSigmoid => grad_ss,
+            ReLU => grad_relu
         }
     }
-
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -42,11 +57,11 @@ pub struct LayerDesc {
     /// number of inputs, not includes bias
     pub num_inputs: usize,
     pub num_outputs: usize,
-    pub activation: OutputFunction
+    pub activation: ActivationFunction
 }
 
 impl LayerDesc {
-    pub fn new(n_in: usize, n_out: usize, f: OutputFunction) -> LayerDesc {
+    pub fn new(n_in: usize, n_out: usize, f: ActivationFunction) -> LayerDesc {
         LayerDesc {num_inputs: n_in, num_outputs: n_out, activation: f }
     }
 
@@ -60,7 +75,7 @@ impl LayerDesc {
 struct Layer {
     m: Array2<f32>,
     bias: Array1<f32>,
-    act: OutputFunction,
+    act: ActivationFunction,
 
     dm: Array2<f32>,
     dbias: Array1<f32>,
