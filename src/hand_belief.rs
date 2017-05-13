@@ -69,7 +69,7 @@ impl fmt::Display for CardState {
     }
 }
 
-/// A `PlayerBelief` object represents the best estimate of the
+/// A `HandBelief` object represents the best estimate of the
 /// probabilities of holding a specific card.
 ///
 /// This struct assumes that all actions affecting the hand (picking
@@ -77,15 +77,15 @@ impl fmt::Display for CardState {
 /// cards aren't. For instance, this module would be invalid if the
 /// player could pick up a secret number of cards.
 ///
-/// `PlayerBelief` is game-agnostic, and does not generally try to
+/// `HandBelief` is game-agnostic, and does not generally try to
 /// model any game-specific knowledge. Estimates are generally
 /// max-entropy in that sense.
-pub struct PlayerBelief {
+pub struct HandBelief {
     probs: HashMap<BasicCard, CardState>,
 }
 
-impl PlayerBelief {
-    pub fn new() -> PlayerBelief {
+impl HandBelief {
+    pub fn new() -> HandBelief {
         let mut probs = HashMap::new();
         //let mut priors = HashMap::new();
         for card in BasicCard::all() {
@@ -93,7 +93,7 @@ impl PlayerBelief {
             //priors.insert(card, 0.0);
         }
 
-        PlayerBelief { probs: probs }
+        HandBelief { probs: probs }
     }
 
     /// print probabilities

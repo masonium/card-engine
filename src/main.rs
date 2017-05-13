@@ -2,11 +2,10 @@ extern crate card_engine;
 extern crate rand;
 extern crate ndarray;
 
-use card_engine::{GameEvent, Round, Action, ActionError};
+use card_engine::{GameEvent, Round, Action, ActionError, HandBelief};
 use card_engine::cards::{self, BasicCard, Rank, Suit, NUM_BASIC_CARDS};
 use card_engine::germanwhist::util::*;
 use card_engine::germanwhist::PlayerView;
-use card_engine::germanwhist::PlayerBelief;
 // use card_engine::{NeuralNet, LayerDesc, OutputFunction};
 use rand::{thread_rng};
 use rand::distributions::{IndependentSample, Range};
@@ -154,7 +153,7 @@ fn main() {
     // println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
     // play_random_game(0, Some(Rank::Ace), true);
 
-    let mut b = PlayerBelief::new();
+    let mut b = HandBelief::new();
     b.random_cards_drawn(13);
     b.empty_suit(Suit::Clubs);
     b.card_drawn(&"2♦".parse().unwrap());
