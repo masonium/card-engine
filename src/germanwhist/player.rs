@@ -59,19 +59,16 @@ pub struct PlayerBelief {
     probs: HashMap<BasicCard, CardState>,
 }
 
-fn print_card_map(map: &HashMap<BasicCard, CardState>) {
-    use self::CardState::*;
-    for rank in Rank::iterator() {
-        print!("| ");
-        for suit in Suit::iterator() {
-            let bc = BasicCard { rank: *rank, suit: *suit };
-            print!("{}{}: ", rank, suit);
-            match *map.get(&bc).unwrap() {
-                Played => print!("----"),
-                Owns => print!("MINE"),
-                Prob(p) => print!("{:.2}", p)
-            }
-            print!(" | ");
+impl fmt::Display for CardState {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        use self::CardState::*;
+        let w = cmp::max(fmt.width().unwrap_or(5), 4);
+
+        match *self {
+            Played => write!(fmt, "{:1$}", "----", w),
+            Void => write!(fmt, "{:1$}", "VOID", w),
+            Owns => write!(fmt, "{:1$}", "MINE", w),
+            Prob(p) => write!(fmt, "{:.1$}", p, w-2)
         }
     }
 }

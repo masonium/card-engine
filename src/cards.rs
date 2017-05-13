@@ -3,6 +3,7 @@ use std::str::FromStr;
 use std::fmt;
 use rand::{Rng, thread_rng};
 use std::slice::Iter;
+use std::collections::HashMap;
 use atty;
 
 #[derive(Debug, Clone, Copy)]
@@ -64,8 +65,8 @@ impl FromStr for Suit {
         use self::CardParseError::*;
         match s {
             "♣" => Ok(Clubs),
-            "♦" => Ok(Hearts),
-            "♥" => Ok(Diamonds),
+            "♦" => Ok(Diamonds),
+            "♥" => Ok(Hearts),
             "♠" => Ok(Spades),
             _ => Err(BadSuit)
         }
@@ -295,6 +296,25 @@ impl BasicDeck {
     }
 
 }
+
+/// Print some value for each card in a hashmap.
+pub fn print_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>) {
+    let col_head = "+-----------".to_string().repeat(4);
+    println!("{}+", &col_head);
+
+    for rank in Rank::iterator() {
+        print!("| ");
+
+        for suit in Suit::iterator() {
+            let bc = BasicCard { rank: *rank, suit: *suit };
+            print!("{}{}: {:5}", rank, suit, *map.get(&bc).unwrap());
+            print!(" | ");
+        }
+        println!("");
+    }
+    println!("{}+", &col_head);
+}
+
 
 pub fn auto_suit_colors() {
     unsafe {
