@@ -23,7 +23,7 @@ pub enum Color {
     Red
 }
 
-#[repr(C)]
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Suit {
     Clubs = 0,
@@ -32,11 +32,11 @@ pub enum Suit {
     Spades = 3
 }
 
+static ALL_SUITS: [Suit; 4] = [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades];
+
 impl Suit {
     /// iterate through all elements of suit
     pub fn iterator() -> Iter<'static, Suit> {
-        use Suit::*;
-        static ALL_SUITS: [Suit; 4] = [Clubs, Diamonds, Hearts, Spades];
         ALL_SUITS.into_iter()
     }
 
@@ -49,6 +49,12 @@ impl Suit {
 
     pub fn ord(&self) -> u8 {
         *self as u8
+    }
+}
+
+impl Into<Suit> for u8 {
+    fn into(self) -> Suit {
+        ALL_SUITS[self as usize]
     }
 }
 
@@ -113,26 +119,29 @@ impl fmt::Display for Suit {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Rank {
-    Two = 2,
-    Three = 3,
-    Four = 4,
-    Five = 5,
-    Six = 6,
-    Seven = 7,
-    Eight = 8,
-    Nine = 9,
-    Ten = 10,
-    Jack = 11,
-    Queen = 12,
-    King = 13,
-    Ace = 14
+    Two = 0,
+    Three = 1,
+    Four = 2,
+    Five = 3,
+    Six = 4,
+    Seven = 5,
+    Eight = 6,
+    Nine = 7,
+    Ten = 8,
+    Jack = 9,
+    Queen = 10,
+    King = 11,
+    Ace = 12
 }
+
+static ALL_RANKS: [Rank;  13] = [Rank::Two, Rank::Three, Rank::Four,
+                             Rank::Five, Rank::Six, Rank::Seven,
+                             Rank::Eight, Rank::Nine, Rank::Ten,
+                             Rank::Jack, Rank::Queen, Rank::King, Rank::Ace];
 
 impl Rank {
     pub fn iterator() -> Iter<'static, Rank> {
-        use Rank::*;
-        static RANKS: [Rank;  13] = [Two, Three, Four, Five, Six, Seven, Eight, Nine, Ten, Jack, Queen, King, Ace];
-        RANKS.into_iter()
+        ALL_RANKS.into_iter()
     }
     /// Assign numerical values to each rank, with ace as high
     pub fn ord_ace_high(&self) -> u8 {
@@ -146,6 +155,12 @@ impl Rank {
             Ace => 1,
             x => x as u8
         }
+    }
+}
+
+impl Into<Rank> for u8 {
+    fn into(self) -> Rank {
+        ALL_RANKS[self as usize]
     }
 }
 
@@ -226,6 +241,12 @@ impl FromStr for BasicCard {
         let rank = rank_str.parse()?;
         let suit = suit_str.parse()?;
         Ok(BasicCard { rank, suit })
+    }
+}
+
+impl Into<u8> for BasicCard {
+    fn into(self) -> u8 {
+        self.rank as u8  + 13 * (self.suit as u8)
     }
 }
 
@@ -326,4 +347,8 @@ pub fn auto_suit_colors() {
             ColorMode::Plain
         }
     }
+}
+
+pub mod prelude {
+    pub use super::{BasicCard, Suit, Rank, auto_suit_colors, print_card_map};
 }
