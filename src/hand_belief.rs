@@ -87,10 +87,8 @@ pub struct HandBelief {
 impl HandBelief {
     pub fn new() -> HandBelief {
         let mut probs = HashMap::new();
-        //let mut priors = HashMap::new();
         for card in BasicCard::all() {
-            probs.insert(card.clone(), CardState::Prob(0.0));
-            //priors.insert(card, 0.0);
+            probs.insert(card.clone(), CardState::Void);
         }
 
         HandBelief { probs: probs }
