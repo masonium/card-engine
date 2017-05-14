@@ -360,10 +360,27 @@ impl BasicDeck {
 //     pub fn
 // }
 
+pub fn format_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>, fmt: &mut fmt::Formatter) -> fmt::Result {
+    let col_head = "*-----------".to_string().repeat(4);
+    writeln!(fmt, "{}*", &col_head)?;
+
+    for rank in Rank::iterator() {
+        write!(fmt, "| ")?;
+
+        for suit in Suit::iterator() {
+            let bc = BasicCard { rank: *rank, suit: *suit };
+            write!(fmt, "{}{}: {:5}", rank, suit, *map.get(&bc).unwrap())?;
+            write!(fmt, " | ")?;
+        }
+        writeln!(fmt, "")?;
+    }
+    writeln!(fmt, "{}*", &col_head)
+}
+
 /// Print some value for each card in a hashmap.
 pub fn print_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>) {
-    let col_head = "+-----------".to_string().repeat(4);
-    println!("{}+", &col_head);
+    let col_head = "*-----------".to_string().repeat(4);
+    println!("{}*", &col_head);
 
     for rank in Rank::iterator() {
         print!("| ");
@@ -375,7 +392,7 @@ pub fn print_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>) {
         }
         println!("");
     }
-    println!("{}+", &col_head);
+    println!("{}*", &col_head);
 }
 
 
@@ -390,5 +407,7 @@ pub fn auto_suit_colors() {
 }
 
 pub mod prelude {
-    pub use super::{BasicCard, Suit, Rank, auto_suit_colors, print_card_map, NUM_BASIC_CARDS, INUM_BASIC_CARDS};
+    pub use super::{BasicCard, Suit, Rank, auto_suit_colors,
+                    format_card_map,
+                    print_card_map, NUM_BASIC_CARDS, INUM_BASIC_CARDS};
 }

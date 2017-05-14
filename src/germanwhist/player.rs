@@ -4,6 +4,8 @@ use ndarray::prelude::*;
 use std::collections::HashSet;
 use germanwhist::engine::GameEvent;
 use cards::prelude::*;
+use itertools::Itertools;
+use std::fmt;
 
 /// Representation of current state for learning value function.
 pub struct PlayerState {
@@ -13,7 +15,7 @@ pub struct PlayerState {
 
     // Explicit state components
     hand: HashSet<BasicCard>,
-    oppo: HandBelief,
+    pub oppo: HandBelief,
     active: usize,
     revealed: Option<BasicCard>,
     leading_card: Option<BasicCard>,
@@ -33,7 +35,7 @@ impl PlayerState {
         PlayerState { player_id: id,
                       hand: HashSet::new(),
                       oppo: HandBelief::new(),
-                      state_vector: Array::zeros(52),
+                      state_vector: Array::zeros(NUM_BASIC_CARDS * 5 + 3),
                       active: 0,
                       trump: Suit::Hearts,
                       revealed: None,
@@ -56,15 +58,21 @@ impl PlayerState {
         use GameEvent::*;
         match ev {
             &Start(ref start) => {
+                println!("start round.");
                 self.hand_from_slice(&start.hand);
-                self.oppo.clear();
-                self.oppo.random_cards_drawn(13);
                 self.trump = start.trump;
                 self.active = start.starting_player;
                 self.revealed = Some(start.revealed);
                 self.played_cards = HashSet::new();
                 self.leading_card = None;
                 self.score = [0, 0];
+
+                self.oppo.clear();
+                self.oppo.random_cards_drawn(13);
+                self.oppo.card_seen(&start.revealed);
+                for card in &self.hand {
+                    self.oppo.card_seen(card);
+                }
             },
             &Action(ref action) => {
                 if action.player == self.player_id {
@@ -82,12 +90,15 @@ impl PlayerState {
 
                 // mark the leading card, if it exists
                 if self.leading_card.is_none() {
-                    self.leading_card = Some(action.card)
+                    self.leading_card = Some(action.card);
                 }
+                self.active = 1 - action.player;
             },
             &Card(card) => {
                 if card.player == self.player_id {
-                    self.hand.insert(card.card.expect("Player always knows what card that player gets."));
+                    let c = card.card.expect("Player always knows what card that player gets.");
+                    self.hand.insert(c);
+                    self.oppo.card_seen(&c);
                 } else {
                     match card.card {
                         Some(ref c) => self.oppo.card_drawn(c),
@@ -101,6 +112,9 @@ impl PlayerState {
                 self.revealed = trick.revealed;
                 self.active = trick.active_player;
                 self.score = trick.score;
+                if let Some(c) = trick.revealed {
+                    self.oppo.card_seen(&c);
+                }
                 for card in &trick.cards_played {
                     self.played_cards.insert(*card);
                 }
@@ -108,6 +122,7 @@ impl PlayerState {
         };
 
         self.dirty = true;
+        self.update_suit_order();
     }
 
     /// update the state vector
@@ -196,5 +211,28 @@ impl PlayerState {
              // normally ordinal as tie-breaker
              s.ord()) });
         self.suit_order = suits;
+    }
+
+    fn format_hand(&self) -> String {
+        let mut v: Vec<_> = self.hand.iter().collect();
+        v.sort_by_key(|c| Self::card_index(c, &self.suit_order));
+        v.iter().map(|x| format!("{}", x)).join(" ")
+    }
+}
+
+impl fmt::Display for PlayerState {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(fmt, "Trump: {}", self.trump)?;
+        writeln!(fmt, "Active Player: {}", self.active)?;
+        if let Some(ref c) = self.revealed {
+            writeln!(fmt, "Revealed Card: {}", c)?;
+        }
+        if let Some(ref c) = self.leading_card {
+            writeln!(fmt, "Leading Card: {}", c)?;
+        }
+
+        writeln!(fmt, "Score: {}-{}", self.score[self.player_id], self.score[1-self.player_id])?;
+        writeln!(fmt, "Hand: {}", &self.format_hand())?;
+        writeln!(fmt, "Opposition:\n{}", self.oppo)
     }
 }

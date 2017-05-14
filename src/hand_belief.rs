@@ -1,6 +1,6 @@
 /// modules for storing player and opponent model
 use std::collections::HashMap;
-use cards::{BasicCard, Suit, Rank, print_card_map, NUM_BASIC_CARDS};
+use cards::prelude::*;
 use std::fmt;
 use std::cmp;
 use ndarray::prelude::*;
@@ -116,15 +116,22 @@ impl HandBelief {
         self.probs.values().map(|v| v.p()).sum()
     }
 
+    /// Return false iff any card in the iteration has zero
+    /// probaability.
+    pub fn matches_hand<'a, T: Iterator<Item=&'a BasicCard>>(&self, mut iter: T) -> bool {
+        iter.all(|c| self.p(c) > 0.0)
+    }
+
     /// Increase the probability of each card in probability status,
     /// such that the total probability increase is ec.
     fn distribute_uniformly(&mut self, ec: f32) {
         let nc = self.num_candidates();
-        for  v in self.probs.values_mut() {
+        for v in self.probs.values_mut() {
             if let &mut CardState::Prob(ref mut p) = v {
                 *p += ec / nc;
             }
         }
+
     }
 
     /// Transfer the probability from cards satisfying the predicate
@@ -189,13 +196,17 @@ impl HandBelief {
 
     /// Mark that the card has been played by this player.
     pub fn card_played(&mut self, card: &BasicCard) {
-        self.transfer_probability_to(|c| c != *card);
+        if self.probs.get(card).unwrap().is_prob() {
+            self.transfer_probability_to(|c| c != *card);
 
-        // mark that the card has been played
-        self.probs.insert(*card, CardState::Played);
+            // mark that the card has been played
+            self.probs.insert(*card, CardState::Played);
 
-        // show that the total number of cards has been reduced
-        self.distribute_uniformly(-1.0);
+            // show that the total number of cards has been reduced
+            self.distribute_uniformly(-1.0);
+        } else {
+            self.probs.insert(*card, CardState::Played);
+        }
     }
 
     /// Mark that the card was played by another player.
@@ -212,5 +223,12 @@ impl HandBelief {
             let card = BasicCard{suit: *suit, rank: *rank};
             *v = self.probs.get(&card).map(|v| v.p()).unwrap_or(0.0);
         }
+    }
+}
+
+impl fmt::Display for HandBelief {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        format_card_map(&self.probs, fmt)?;
+        writeln!(fmt, "Num Cards: {:.1}", self.probs.values().map(|v| v.p()).sum::<f32>())
     }
 }
