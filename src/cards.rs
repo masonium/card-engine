@@ -135,9 +135,9 @@ pub enum Rank {
 }
 
 static ALL_RANKS: [Rank;  13] = [Rank::Two, Rank::Three, Rank::Four,
-                             Rank::Five, Rank::Six, Rank::Seven,
-                             Rank::Eight, Rank::Nine, Rank::Ten,
-                             Rank::Jack, Rank::Queen, Rank::King, Rank::Ace];
+                                 Rank::Five, Rank::Six, Rank::Seven,
+                                 Rank::Eight, Rank::Nine, Rank::Ten,
+                                 Rank::Jack, Rank::Queen, Rank::King, Rank::Ace];
 
 impl Rank {
     pub fn iterator() -> Iter<'static, Rank> {
@@ -244,11 +244,23 @@ impl FromStr for BasicCard {
     }
 }
 
-impl Into<u8> for BasicCard {
-    fn into(self) -> u8 {
-        self.rank as u8  + 13 * (self.suit as u8)
+impl From<u8> for BasicCard {
+    fn from(s: u8) -> Self {
+        BasicCard{ rank: (s / 13).into(), suit: (s % 13).into() }
     }
 }
+
+impl From<BasicCard> for u8 {
+    fn from(s: BasicCard) -> Self {
+        s.rank as u8  + 13 * (s.suit as u8)
+    }
+}
+impl<'a> From<&'a BasicCard> for u8 {
+    fn from(s: &BasicCard) -> Self {
+        s.rank as u8  + 13 * (s.suit as u8)
+    }
+}
+
 
 impl fmt::Display for BasicCard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -275,6 +287,7 @@ impl fmt::Display for Card {
 }
 
 pub const NUM_BASIC_CARDS: usize = 52;
+pub const INUM_BASIC_CARDS: isize = 52;
 
 /// Deck of 52 basic (non-joker) cards
 #[derive(Debug)]
@@ -317,8 +330,35 @@ impl BasicDeck {
             None
         }
     }
-
 }
+
+// #[derive(Debug, Clone)]
+// pub struct BasicHand {
+//     hand: u64
+// }
+
+// impl BasicHand {
+//     pub fn new() -> BasicHand {
+//         BasicHand { hand: 0 }
+//     }
+
+//     pub fn contains(&self, card: &BasicCard) -> bool {
+//         let c: u8 = card.into();
+//         (self.hand & (1u64 << c)) != 0
+//     }
+
+//     pub fn insert(&mut self, card: &BasicCard) {
+//         let c: u8 = card.into();
+//         self.hand |= 1u64 << c;
+//     }
+
+//     pub fn remove(&mut self, card: &BasicCard) {
+//         let c: u8 = card.into();
+//         self.hand &= !(1u64 << c);
+//     }
+
+//     pub fn
+// }
 
 /// Print some value for each card in a hashmap.
 pub fn print_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>) {
@@ -350,5 +390,5 @@ pub fn auto_suit_colors() {
 }
 
 pub mod prelude {
-    pub use super::{BasicCard, Suit, Rank, auto_suit_colors, print_card_map};
+    pub use super::{BasicCard, Suit, Rank, auto_suit_colors, print_card_map, NUM_BASIC_CARDS, INUM_BASIC_CARDS};
 }
