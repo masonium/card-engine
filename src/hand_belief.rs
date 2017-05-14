@@ -107,7 +107,7 @@ impl HandBelief {
     }
 
     /// Return the probability that the player has the card.
-    pub fn has_card(&mut self, card: &BasicCard) -> f32 {
+    pub fn p(&self, card: &BasicCard) -> f32 {
         self.probs.get(card).expect("All basic cards should be in probability map.").p()
     }
 
