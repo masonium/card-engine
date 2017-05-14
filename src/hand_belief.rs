@@ -94,6 +94,13 @@ impl HandBelief {
         HandBelief { probs: probs }
     }
 
+    /// Reset the entire hand to void.
+    pub fn clear(&mut self) {
+        for v in self.probs.values_mut() {
+            *v = CardState::Void;
+        }
+    }
+
     /// print probabilities
     pub fn print_probabilities(&self) {
         print_card_map(&self.probs);

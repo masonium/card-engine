@@ -61,8 +61,9 @@ impl GamePhase for PlayingPhase {
                 player.remove_card(&action.card)?;
             }
 
-            events[0].push(GameEvent::Action(action.clone()));
-            events[1].push(GameEvent::Action(action.clone()));
+            let action_ev = GameEvent::Action(action.clone());
+            events[0].push(action_ev.clone());
+            events[1].push(action_ev.clone());
 
             let follow = gs.active;
             let lead = 1 - gs.active;
@@ -74,11 +75,11 @@ impl GamePhase for PlayingPhase {
             };
             let loser = 1 - winner;
 
-            let mut trick = TrickEvent{ leading_player: lead,
-                                        cards: [leading_card.clone(), action.card.clone()],
-                                        score: [0, 0] };
+            let mut cards_played = [leading_card.clone(), action.card.clone()];
+            let mut cards_received = [None, None];
+
             if lead == 1 {
-                trick.cards.swap(0, 1);
+                cards_played.swap(0, 1);
             }
 
             // hand-building phase
@@ -88,13 +89,22 @@ impl GamePhase for PlayingPhase {
                     let r = gs.revealed.take().expect("must be a revealed card");
                     gs.player_view_mut(winner).add_card(r.clone());
 
-                    events[loser].push(GameEvent::Card(CardEvent{ player: loser, card: r.clone()}));
+                    cards_received[winner] = Some(r);
+                    let rec_ev = GameEvent::Card(CardEvent { player: winner, card: Some(r.clone()) });
+
+                    // both players know what the winning player got.
+                    events[winner].push(rec_ev.clone());
+                    events[loser].push(rec_ev);
                 }
 
                 {
                     let draw = gs.draw().expect("must have a card left after trick");
                     gs.player_view_mut(loser).add_card(draw.clone());
-                    events[winner].push(GameEvent::Card(CardEvent{ player: winner, card: draw.clone()}));
+                    cards_received[loser] = Some(draw);
+
+                    // the loser knows what they got, but the winner doesn't
+                    events[loser].push(GameEvent::Card(CardEvent { player: loser, card: Some(draw.clone()) }));
+                    events[winner].push(GameEvent::Card(CardEvent { player: loser, card: None }));
                 }
 
                 // Draw a new card, if any
@@ -103,18 +113,23 @@ impl GamePhase for PlayingPhase {
                 }
 
                 gs.increment_score(winner, rules.0);
-                trick.score[winner] = rules.0;
             }
             // scoring phase
             else {
                 gs.increment_score(winner, rules.1);
-                trick.score[winner] = rules.1;
             }
 
             gs.active = winner;
             gs.rounds_left -= 1;
-            events[0].push(GameEvent::Trick(trick.clone()));
-            events[1].push(GameEvent::Trick(trick));
+
+            let trick = GameEvent::Trick(TrickEvent{ leading_player: lead,
+                                                     active_player: gs.active,
+                                                     cards_played,
+                                                     revealed: gs.revealed,
+                                                     score: gs.score });
+
+            events[loser].push(trick.clone());
+            events[winner].push(trick);
         }
 
         Ok(events)
@@ -127,11 +142,11 @@ impl GamePhase for PlayingPhase {
             },
             (&Some(ref reveal), &Some(ref card)) => {
                 format!("Playing for {}\nPlayer {} played {}, Player {} to respond.",
-                       reveal, 2 - gs.active, card, gs.active + 1)
+                        reveal, 2 - gs.active, card, gs.active + 1)
             },
             (&Some(ref reveal), &None) => {
                 format!("Playing for {}\nPlayer {} to open",
-                       reveal, gs.active + 1)
+                        reveal, gs.active + 1)
             }
         }
     }

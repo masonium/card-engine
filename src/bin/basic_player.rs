@@ -89,7 +89,8 @@ impl Player for BasicPlayer {
 
 /// Randomly choose actions at each play
 fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usize; 2], ActionError> {
-    let mut round = Round::new(start, (0, 1));
+    let mut round = Round::new((0, 1));
+    round.start_round(start);
 
     if verbose {
         println!("{}", format_round(&round));

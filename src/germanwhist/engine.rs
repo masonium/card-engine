@@ -1,7 +1,7 @@
-use cards::{BasicCard};
+use cards::{BasicCard, Suit};
 
 use super::state::{GameState, PlayerView};
-use super::phase::{GamePhase, PlayingPhase};
+use super::phase::{GamePhase, PlayingPhase, GameOverPhase};
 
 #[derive(Clone, Debug)]
 pub struct Action {
@@ -13,15 +13,28 @@ pub type ActionEvent = Action;
 
 #[derive(Clone, Debug)]
 pub struct TrickEvent {
+    /// who led
     pub leading_player: usize,
-    pub cards: [BasicCard; 2],
+
+    /// who starts the new round
+    pub active_player: usize,
+
+    /// cards played during the trick, indexed by player
+    pub cards_played: [BasicCard; 2],
+
+    /// new revealed card
+    pub revealed: Option<BasicCard>,
+
+    /// score after the trick
     pub score: [usize; 2]
 }
 
 #[derive(Clone, Debug)]
-pub struct CardEvent {
-    pub player: usize,
-    pub card: BasicCard
+pub struct StartRoundEvent {
+    pub hand: Vec<BasicCard>,
+    pub revealed: BasicCard,
+    pub trump: Suit,
+    pub starting_player: usize
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -32,11 +45,21 @@ pub enum ActionError {
     GameOver
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
+pub struct CardEvent {
+    pub player: usize,
+
+    /// Card the player received. None indicates the player picked up
+    /// a random card.
+    pub card: Option<BasicCard>
+}
+
+#[derive(Debug, Clone)]
 pub enum GameEvent {
     Action(Action),
     Trick(TrickEvent),
-    Card(CardEvent)
+    Card(CardEvent),
+    Start(StartRoundEvent)
 }
 
 pub type ScoringRules = (usize, usize);
@@ -49,10 +72,23 @@ pub struct Round {
 }
 
 impl Round {
-    pub fn new<T: Into<Option<usize>>>(starting_player: T, rules: ScoringRules) -> Round {
-        let state = GameState::new(starting_player.into());
-        let phase: Option<Box<GamePhase>> = Some(Box::new(PlayingPhase{}));
+    pub fn new(rules: ScoringRules) -> Round {
+        let state = GameState::new(0);
+        let phase: Option<Box<GamePhase>> = Some(Box::new(GameOverPhase{}));
         Round { state, phase: phase, rules }
+    }
+
+    pub fn start_round(&mut self, starting_player: usize) -> [Vec<GameEvent>; 2] {
+        self.phase = Some(Box::new(PlayingPhase{}));
+        self.state = GameState::new(starting_player);
+
+        let p0 = StartRoundEvent{ hand: self.state.hands[0].iter().cloned().collect(),
+                                  revealed: self.state.revealed.expect("start of round"),
+                                  trump: self.state.trump,
+                                  starting_player: starting_player };
+        let p1 = StartRoundEvent{ hand: self.state.hands[1].iter().cloned().collect(), ..p0 };
+
+        [vec![GameEvent::Start(p0)], vec![GameEvent::Start(p1)]]
     }
 
     pub fn get_state(&self) -> &GameState {
