@@ -162,9 +162,14 @@ impl PlayerState {
         state_view[2] = score_to_state(self.score[1]);
     }
 
-    pub fn state_vector(&mut self) -> ArrayView<f32, Ix1> {
+    pub fn state_vector_view(&mut self) -> ArrayView<f32, Ix1> {
         self.update_state_vector();
         self.state_vector.view()
+    }
+
+    pub fn state_vector(&mut self) -> Array<f32, Ix1> {
+        self.update_state_vector();
+        self.state_vector.clone()
     }
 
     /// Return the index of the card in a vector representation

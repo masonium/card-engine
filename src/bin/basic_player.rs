@@ -5,7 +5,7 @@ extern crate ndarray;
 use card_engine::{GameEvent, Round, Action, ActionError, HandBelief};
 use card_engine::cards::{self, BasicCard, Rank, Suit, NUM_BASIC_CARDS};
 use card_engine::germanwhist::util::*;
-use card_engine::germanwhist::PlayerView;
+use card_engine::germanwhist::{PlayerView, PlayerState};
 // use card_engine::{NeuralNet, LayerDesc, OutputFunction};
 use rand::{thread_rng};
 use rand::distributions::{IndependentSample, Range};
@@ -90,17 +90,22 @@ impl Player for BasicPlayer {
 /// Randomly choose actions at each play
 fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usize; 2], ActionError> {
     let mut round = Round::new((0, 1));
-    round.start_round(start);
 
-    if verbose {
-        println!("{}", format_round(&round));
-    }
-
-    let mut actions = round.possible_actions();
+    let mut ps = PlayerState::new(0);
 
     let players: [Box<Player>; 2] = [Box::new(BasicPlayer::new(r)), Box::new(RandomPlayer::new())];
 
+    let events = round.start_round(start);
+    for ev in &events[0] {
+        ps.on_event(ev);
+    }
+    let mut actions = round.possible_actions();
+
+    let mut iter = 1;
     while actions.len() > 0 {
+        println!("+++++ Round: {} +++++", iter);
+        iter += 1;
+        println!("{}", ps);
         let action = {
             let player_view = round.active_player_view();
             let card = players[player_view.player].play_card(&player_view);
@@ -112,7 +117,12 @@ fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usi
             println!("{}", format_action(&action));
         }
 
-        round.play_action(action)?;
+        let events = round.play_action(action)?;
+        for ev in &events[0] {
+            ps.on_event(ev);
+        }
+
+        assert!(ps.oppo.matches_hand(round.get_state().hands[1].iter()));
 
         if verbose && round.get_state().played.is_none() {
             println!("**************");
@@ -121,6 +131,7 @@ fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usi
 
         actions = round.possible_actions();
     }
+    println!("{}", ps);
 
     Ok(round.get_state().score.clone())
 }
@@ -152,19 +163,7 @@ fn main() {
     // let games_won = test_basic_player(None);
 
     // println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
-    // play_random_game(0, Some(Rank::Ace), true);
-
-    let mut b = HandBelief::new();
-    b.random_cards_drawn(13);
-    b.empty_suit(Suit::Clubs);
-    b.card_drawn(&"2♦".parse().unwrap());
-    b.print_probabilities();
-    b.random_cards_drawn(1);
-    b.print_probabilities();
-
-    let mut v = Array::zeros(NUM_BASIC_CARDS);
-    b.onto_vector(&mut v, &[Suit::Spades, Suit::Hearts, Suit::Diamonds, Suit::Clubs]);
-    println!("{}", v);
+    play_random_game(0, Some(Rank::Ace), true);
 }
 
 
