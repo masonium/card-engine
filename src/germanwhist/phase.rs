@@ -3,7 +3,10 @@ use super::state::{GameState};
 use super::engine::{CardEvent, TrickEvent, GameEvent};
 
 pub trait GamePhase {
+    /// Return the number of possible actions
     fn possible_actions(&self, gs: &GameState) -> Vec<Action>;
+
+    fn is_game_over(&self) -> bool;
 
     /// perform action on a submitted, return rounds left in this state
     fn on_action(&mut self, gs: &mut GameState, rules: &ScoringRules, action: Action) -> Result<[Vec<GameEvent>; 2], ActionError>;
@@ -11,7 +14,7 @@ pub trait GamePhase {
     fn format(&self, gs: &GameState) -> String;
 
     /// ending the state
-    fn transition(&mut self, gs: &mut GameState) -> Option<Box<GamePhase>>;
+    fn transition(&mut self, gs: &mut GameState) -> Box<GamePhase>;
 }
 
 pub struct PlayingPhase;
@@ -135,6 +138,10 @@ impl GamePhase for PlayingPhase {
         Ok(events)
     }
 
+    fn is_game_over(&self) -> bool {
+        false
+    }
+
     fn format(&self, gs: &GameState) -> String {
         match (&gs.revealed, &gs.played) {
             (&None, _) => {
@@ -154,8 +161,8 @@ impl GamePhase for PlayingPhase {
 
 
     /// Once we're done playing, finish.
-    fn transition(&mut self, _: &mut GameState) -> Option<Box<GamePhase>> {
-        Some(Box::new(GameOverPhase {}))
+    fn transition(&mut self, _: &mut GameState) -> Box<GamePhase> {
+        Box::new(GameOverPhase {})
     }
 
 }
@@ -176,7 +183,11 @@ impl GamePhase for GameOverPhase {
         format!("Game Over.")
     }
 
-    fn transition(&mut self, _: &mut GameState) -> Option<Box<GamePhase>> {
-        Some(Box::new(GameOverPhase{}))
+    fn is_game_over(&self) -> bool {
+        true
+    }
+
+    fn transition(&mut self, _: &mut GameState) -> Box<GamePhase> {
+        Box::new(GameOverPhase{})
     }
 }

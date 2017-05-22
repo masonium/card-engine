@@ -2,8 +2,9 @@ use cards::{BasicCard, Suit};
 
 use super::state::{GameState, PlayerView};
 use super::phase::{GamePhase, PlayingPhase, GameOverPhase};
+use rand::{Rng, thread_rng};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Action {
     pub player: usize,
     pub card: BasicCard
@@ -67,25 +68,26 @@ pub type ScoringRules = (usize, usize);
 /// Game engine for a round of German Whist
 pub struct Round {
     state: GameState,
-    phase: Option<Box<GamePhase>>,
+    phase: Box<GamePhase>,
     rules: ScoringRules,
 }
 
 impl Round {
     pub fn new(rules: ScoringRules) -> Round {
         let state = GameState::new(0);
-        let phase: Option<Box<GamePhase>> = Some(Box::new(GameOverPhase{}));
+        let phase: Box<GamePhase> = Box::new(GameOverPhase{});
         Round { state, phase: phase, rules }
     }
 
-    pub fn start_round(&mut self, starting_player: usize) -> [Vec<GameEvent>; 2] {
-        self.phase = Some(Box::new(PlayingPhase{}));
-        self.state = GameState::new(starting_player);
+    pub fn start_round<T: Into<Option<usize>>>(&mut self, starting_player: T) -> [Vec<GameEvent>; 2] {
+        self.phase = Box::new(PlayingPhase{});
+        let start = starting_player.into().unwrap_or(if thread_rng().gen::<bool>() { 1 } else { 0 });
+        self.state = GameState::new(start);
 
         let p0 = StartRoundEvent{ hand: self.state.hands[0].iter().cloned().collect(),
                                   revealed: self.state.revealed.expect("start of round"),
                                   trump: self.state.trump,
-                                  starting_player: starting_player };
+                                  starting_player: start };
         let p1 = StartRoundEvent{ hand: self.state.hands[1].iter().cloned().collect(), ..p0 };
 
         [vec![GameEvent::Start(p0)], vec![GameEvent::Start(p1)]]
@@ -95,24 +97,42 @@ impl Round {
         &self.state
     }
 
+    pub fn active_player(&self) -> usize {
+        self.state.active
+    }
+
     pub fn active_player_view(&self) -> PlayerView {
         self.state.player_view(self.state.active)
     }
 
+    pub fn is_game_over(&self) -> bool {
+        self.phase.is_game_over()
+    }
+
+    pub fn winner(&self) -> Option<usize> {
+        if self.is_game_over() {
+            let s = &self.state.score;
+            Some(if s[0] < s[1] { 1 } else  { 0 })
+        } else {
+            None
+        }
+
+    }
+
     pub fn possible_actions(&self) -> Vec<Action> {
-        self.phase.as_ref().unwrap().possible_actions(&self.state)
+        self.phase.as_ref().possible_actions(&self.state)
     }
 
     pub fn get_phase(&self) -> &GamePhase {
         use std::borrow::Borrow;
-        self.phase.as_ref().unwrap().borrow()
+        self.phase.as_ref().borrow()
     }
 
     pub fn play_action(&mut self, action: Action) -> Result<[Vec<GameEvent>; 2], ActionError> {
-        let events = self.phase.as_mut().unwrap().on_action(&mut self.state, &self.rules, action)?;
+        let events = self.phase.as_mut().on_action(&mut self.state, &self.rules, action)?;
 
         if self.state.rounds_left == 0 {
-            self.phase = self.phase.as_mut().unwrap().transition(&mut self.state);
+            self.phase = self.phase.as_mut().transition(&mut self.state);
         }
 
         Ok(events)

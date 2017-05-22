@@ -2,7 +2,7 @@
 use hand_belief::HandBelief;
 use ndarray::prelude::*;
 use std::collections::HashSet;
-use germanwhist::engine::GameEvent;
+use germanwhist::engine::{GameEvent, Action};
 use cards::prelude::*;
 use itertools::Itertools;
 use std::fmt;
@@ -23,11 +23,7 @@ pub struct PlayerState {
     score: [usize; 2],
 
     // state vector
-    state_vector: Array<f32, Ix1>,
     suit_order: [Suit; 4],
-
-    // whether the state needs to be recomputed
-    dirty: bool
 }
 
 impl PlayerState {
@@ -35,7 +31,6 @@ impl PlayerState {
         PlayerState { player_id: id,
                       hand: HashSet::new(),
                       oppo: HandBelief::new(),
-                      state_vector: Array::zeros(NUM_BASIC_CARDS * 5 + 3),
                       active: 0,
                       trump: Suit::Hearts,
                       revealed: None,
@@ -43,14 +38,14 @@ impl PlayerState {
                       played_cards: HashSet::new(),
                       score: [0, 0],
                       suit_order: [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades],
-                      dirty: true}
+        }
     }
 
-    fn hand_from_slice(&mut self, v: &[BasicCard]) {
-        self.hand.clear();
-        for card in v {
-            self.hand.insert(*card);
-        }
+    pub fn state_vector_size(&self) -> usize {
+        NUM_BASIC_CARDS * 5 + 3
+    }
+    pub fn action_vector_size(&self) -> usize {
+        NUM_BASIC_CARDS
     }
 
     /// Update the state vector in response to a game action.
@@ -59,7 +54,7 @@ impl PlayerState {
         match ev {
             &Start(ref start) => {
                 println!("start round.");
-                self.hand_from_slice(&start.hand);
+                self.hand = start.hand.iter().cloned().collect();
                 self.trump = start.trump;
                 self.active = start.starting_player;
                 self.revealed = Some(start.revealed);
@@ -121,19 +116,14 @@ impl PlayerState {
             }
         };
 
-        self.dirty = true;
         self.update_suit_order();
     }
 
     /// update the state vector
-    fn update_state_vector(&mut self) {
-        if !self.dirty {
-            return;
-        }
+    pub fn state_vector(&self, state_view: ArrayViewMut<f32, Ix1>) {
+        assert_eq!(state_view.dim(), self.state_vector_size());
 
-        self.update_suit_order();
-        let mut state_view = self.state_vector.view_mut();
-        state_view = {
+        let mut state_view = {
             let (hand_view, state_view) = state_view.split_at(Axis(0), NUM_BASIC_CARDS);
             Self::cards_to_vector(hand_view, &self.hand, &self.suit_order);
 
@@ -143,11 +133,11 @@ impl PlayerState {
             let (played_view, state_view) = state_view.split_at(Axis(0), NUM_BASIC_CARDS);
             Self::cards_to_vector(played_view, &self.played_cards, &self.suit_order);
 
-            let (revealed_view, state_view) = state_view.split_at(Axis(0), NUM_BASIC_CARDS);
-            Self::card_to_vector(revealed_view, &self.revealed, &self.suit_order);
+            let (mut revealed_view, state_view) = state_view.split_at(Axis(0), NUM_BASIC_CARDS);
+            Self::card_to_vector(&mut revealed_view, &self.revealed, &self.suit_order);
 
-            let (leading_view, state_view) = state_view.split_at(Axis(0), NUM_BASIC_CARDS);
-            Self::card_to_vector(leading_view, &self.leading_card, &self.suit_order);
+            let (mut leading_view, state_view) = state_view.split_at(Axis(0), NUM_BASIC_CARDS);
+            Self::card_to_vector(&mut leading_view, &self.leading_card, &self.suit_order);
 
             state_view
         };
@@ -162,14 +152,22 @@ impl PlayerState {
         state_view[2] = score_to_state(self.score[1]);
     }
 
-    pub fn state_vector_view(&mut self) -> ArrayView<f32, Ix1> {
-        self.update_state_vector();
-        self.state_vector.view()
+    pub fn action_vector(&self, action: &Action, action_view: &mut ArrayViewMut<f32, Ix1>) {
+        assert_eq!(action_view.dim(), self.action_vector_size());
+        assert!(self.hand.contains(&action.card));
+
+        Self::card_to_vector(action_view, &Some(action.card), &self.suit_order)
     }
 
-    pub fn state_vector(&mut self) -> Array<f32, Ix1> {
-        self.update_state_vector();
-        self.state_vector.clone()
+    /// Return a vector representing the state-action pair, for the current state and provided action.
+    pub fn state_action_vector(&self, state_action_view: ArrayViewMut<f32, Ix1>, eval_state: bool, action: Option<&Action>) {
+        let (state_view, mut action_view) = state_action_view.split_at(Axis(0), self.state_vector_size());
+        if !eval_state {
+            self.state_vector(state_view);
+        }
+        if let Some(ref act) = action {
+            self.action_vector(act, &mut action_view);
+        }
     }
 
     /// Return the index of the card in a vector representation
@@ -178,7 +176,7 @@ impl PlayerState {
     }
 
     /// Translate a card into a state sub-vector, based on the current suit order
-    fn card_to_vector(mut x: ArrayViewMut<f32, Ix1>, card: &Option<BasicCard>, suit_order: &[Suit]) {
+    fn card_to_vector(mut x: &mut ArrayViewMut<f32, Ix1>, card: &Option<BasicCard>, suit_order: &[Suit]) {
         assert_eq!(x.dim(), 52);
         x.fill(0.0);
         if let &Some(ref c) = card {
@@ -223,6 +221,7 @@ impl PlayerState {
         v.sort_by_key(|c| Self::card_index(c, &self.suit_order));
         v.iter().map(|x| format!("{}", x)).join(" ")
     }
+
 }
 
 impl fmt::Display for PlayerState {

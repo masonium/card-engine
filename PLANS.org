@@ -1,9 +1,17 @@
 * Interface
   - [ ] add 'Human player', taking input
 * Features
- - [ ] Hand model / hand state
- - [ ] Oppenent model (Card probabilities)
+ - [X] Hand model / hand state
+ - [X] Oppenent model (Card probabilities)
 * RL
  - check neural network
  - [ ] Sarsa
  - [ ] TD(λ)
+
+
+Learner
+Differntiable Functional Approximation
+Full State Output
+ - Opponent model
+ - self model
+ - game state
