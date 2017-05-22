@@ -2,6 +2,7 @@ use germanwhist::{self, Action, ActionError, GameEvent,
                   Round, PlayerState, ScoringRules};
 
 use ndarray::prelude::*;
+use ndarray::Data;
 use rand::{Rng, thread_rng};
 
 pub enum LearningModelError {
@@ -10,7 +11,7 @@ pub enum LearningModelError {
 
 /// Reinforcement Learning traits and implementations
 pub trait LearningModel {
-    //
+    // Evaluate the gradient
     fn evaluate_q(&self, ArrayView<f32, Ix1>) -> f32;
 
     // Compute q, and the gradient.
@@ -21,6 +22,9 @@ pub trait LearningModel {
 
     // num parameters
     fn num_parameters(&self) -> usize;
+
+    // Update the weights of the model
+    fn update_weights<T: Data<Elem=f32>>(&mut self, error: f32, dir: &ArrayBase<T, Ix1>);
 
 }
 
@@ -126,7 +130,7 @@ impl<M: LearningModel> SarsaLambda<M> {
             // update the model from the previous turn
             {
                 let player = &self.players[active];
-                self.model.update_weights(self.param.gamma * q_predict - player.last_q, player.e_trace);
+                self.model.update_weights(self.param.gamma * q_predict - player.last_q, &player.e_trace);
             }
 
             // update the eligibility trace
@@ -150,8 +154,8 @@ impl<M: LearningModel> SarsaLambda<M> {
         // Once the game is over, perform the final update based on the game result.
         let winner = self.engine.winner().expect("must be a winner at game-over phase.");
         let loser = 1 - winner;
-        self.model.update_weights(1.0 - self.players[winner].last_q, self.players[winner].e_trace);
-        self.model.update_weights(0.0 - self.players[loser].last_q, self.players[loser].e_trace);
+        self.model.update_weights(1.0 - self.players[winner].last_q, &self.players[winner].e_trace);
+        self.model.update_weights(0.0 - self.players[loser].last_q, &self.players[loser].e_trace);
         Ok(())
     }
 }
