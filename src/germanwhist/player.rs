@@ -44,8 +44,19 @@ impl PlayerState {
     pub fn state_vector_size(&self) -> usize {
         NUM_BASIC_CARDS * 5 + 3
     }
+    pub fn state_size() -> usize {
+        NUM_BASIC_CARDS * 5 + 3
+    }
+
     pub fn action_vector_size(&self) -> usize {
         NUM_BASIC_CARDS
+    }
+
+    pub fn action_size() -> usize {
+        NUM_BASIC_CARDS
+    }
+    pub fn state_action_size() -> usize {
+        Self::state_size() + Self::action_size()
     }
 
     /// Update the state vector in response to a game action.
@@ -53,7 +64,6 @@ impl PlayerState {
         use GameEvent::*;
         match ev {
             &Start(ref start) => {
-                println!("start round.");
                 self.hand = start.hand.iter().cloned().collect();
                 self.trump = start.trump;
                 self.active = start.starting_player;
@@ -178,7 +188,7 @@ impl PlayerState {
     /// Translate a card into a state sub-vector, based on the current suit order
     fn card_to_vector(mut x: &mut ArrayViewMut<f32, Ix1>, card: &Option<BasicCard>, suit_order: &[Suit]) {
         assert_eq!(x.dim(), 52);
-        x.fill(0.0);
+        x.fill(-1.0);
         if let &Some(ref c) = card {
             x[Self::card_index(c, suit_order)] = 1.0;
         }
@@ -189,7 +199,7 @@ impl PlayerState {
                       hb: &HandBelief, suit_order: &[Suit]) {
         assert_eq!(x.dim(), 52);
         for c in BasicCard::all() {
-            x[Self::card_index(&c, suit_order)] = hb.p(&c);
+            x[Self::card_index(&c, suit_order)] = hb.p(&c) * 2.0 - 1.0;
         }
     }
 
@@ -197,7 +207,7 @@ impl PlayerState {
     fn cards_to_vector(mut x: ArrayViewMut<f32, Ix1>,
                        card: &HashSet<BasicCard>, suit_order: &[Suit]) {
         assert_eq!(x.dim(), 52);
-        x.fill(0.0);
+        x.fill(-1.0);
         for c in card {
             x[Self::card_index(c, suit_order)] = 1.0;
         }

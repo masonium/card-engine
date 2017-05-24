@@ -1,5 +1,6 @@
 extern crate rand;
 extern crate termion;
+extern crate time;
 
 #[macro_use]
 extern crate lazy_static;

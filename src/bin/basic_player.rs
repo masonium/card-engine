@@ -1,15 +1,18 @@
 extern crate card_engine;
 extern crate rand;
 extern crate ndarray;
+extern crate time;
 
-use card_engine::{GameEvent, Round, Action, ActionError, HandBelief};
-use card_engine::cards::{self, BasicCard, Rank, Suit, NUM_BASIC_CARDS};
+use card_engine::{GameEvent, Round, Action, ActionError};
+use card_engine::cards::{self, BasicCard, Rank, Suit};
 use card_engine::germanwhist::util::*;
 use card_engine::germanwhist::{PlayerView, PlayerState};
+use card_engine::learning::training::{SarsaPlayer, SarsaLambda, SarsaLambdaParameters};
+use card_engine::learning::neural_net::{NeuralNet, LayerDesc, ActivationFunction};
+use ndarray::Array;
 // use card_engine::{NeuralNet, LayerDesc, OutputFunction};
 use rand::{thread_rng};
 use rand::distributions::{IndependentSample, Range};
-use ndarray::prelude::*;
 
 trait Player {
     fn on_game_action(&mut self, _ev: &GameEvent) { }
@@ -88,6 +91,7 @@ impl Player for BasicPlayer {
 }
 
 /// Randomly choose actions at each play
+#[allow(unused)]
 fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usize; 2], ActionError> {
     let mut round = Round::new((0, 1));
 
@@ -136,6 +140,38 @@ fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usi
     Ok(round.get_state().score.clone())
 }
 
+fn basic_random_game() -> f32 {
+    let mut round = Round::new((0, 1));
+    let mut ps = PlayerState::new(0);
+
+    let players: [Box<Player>; 2] = [Box::new(BasicPlayer::new(None)), Box::new(RandomPlayer::new())];
+
+    let events = round.start_round(None);
+    for ev in &events[0] {
+        ps.on_event(ev);
+    }
+    let mut actions = round.possible_actions();
+
+    while actions.len() > 0 {
+        let action = {
+            let player_view = round.active_player_view();
+            let card = players[player_view.player].play_card(&player_view);
+
+            Action { card, player: player_view.player }
+        };
+
+        let events = round.play_action(action).unwrap();
+        for ev in &events[0] {
+            ps.on_event(ev);
+        }
+
+        actions = round.possible_actions();
+    }
+
+    let s = round.get_state().score;
+    if (s[0] as f32 - s[1] as f32) > 0.0 { 1.0 } else { 0.0 }
+}
+
 #[allow(unused)]
 fn test_basic_player(r: Option<Rank>) -> [usize; 2] {
     let mut games_won = [0, 0];
@@ -151,19 +187,70 @@ fn test_basic_player(r: Option<Rank>) -> [usize; 2] {
     games_won
 }
 
+fn test_against<P: Player>(nn: &NeuralNet, oppo: P) -> f32 {
+    let mut eng = Round::new((0, 1));
+
+    let mut ps = SarsaPlayer::new(PlayerState::new(1), nn.num_parameters());
+
+    let evs = eng.start_round(None);
+    for ev in &evs[1] {
+        ps.state.on_event(ev);
+    }
+
+    /// start the game
+    let mut actions = eng.possible_actions();
+    let mut sa = Array::zeros(ps.state.state_vector_size() + ps.state.action_vector_size());
+
+    while actions.len() > 0 {
+
+        let action = if eng.active_player() == 0 {
+            let c = oppo.play_card(&eng.active_player_view());
+            Action { player: 0, card: c }
+        } else {
+            ps.greedy_action(nn, &actions, sa.view_mut())
+        };
+
+        let evs = eng.play_action(action).expect("must play valid action");
+        
+        for ev in &evs[1] {
+            ps.state.on_event(ev);
+        }
+
+        actions = eng.possible_actions();
+    }
+
+    if eng.get_state().score[1] as f32 - eng.get_state().score[0] as f32 > 0.0 { 1.0 } else { 0.0 }
+}
+
 fn main() {
     cards::auto_suit_colors();
+    let sa = PlayerState::action_size() + PlayerState::state_size();
+    let nn = NeuralNet::new(&[LayerDesc::new(sa, sa*4, ActivationFunction::SymmetricSigmoid),
+                              LayerDesc::new(sa*4, 20, ActivationFunction::SymmetricSigmoid),
+                              LayerDesc::new(20, 1, ActivationFunction::Sigmoid)],
+                            0.1).unwrap();
 
-    // for r in Rank::iterator() {
-    //     let games_won = test_basic_player(Some(r.clone()));
+    let mut sl = SarsaLambda::new((0, 1), nn, SarsaLambdaParameters::default())
+        .ok().expect("sarsa lambda creation");
 
-    //     println!("Player 1 Record, Rank {}: {}-{}", r, games_won[0], games_won[1]);
-    // }
+    let mut basic_sd: f32 = 0.0;
+    let mut random_sd: f32 = 0.0;
+    let mut br_sd: f32 = 0.0;
+    let decay: f32 = 0.95;
+    for i in 0..1000000 {
+        if i % 10 == 0 {
+            basic_sd = basic_sd * decay + test_against(sl.current_model(), BasicPlayer::new(None)) * (1.0 - decay);
+            random_sd = random_sd * decay + test_against(sl.current_model(), RandomPlayer) * (1.0 - decay);
+            br_sd = br_sd * decay + basic_random_game() * (1.0 - decay);
+            println!("{:10}, {}, {}, {}", i, basic_sd, random_sd, br_sd);
+        }
+        if i % 1000 == 0 {
+            println!("{}", time::now().strftime("%H:%M:%S").ok().unwrap());
+        }
+        sl.train_on_episode();
+    }
 
-    // let games_won = test_basic_player(None);
-
-    // println!("Player 1 Record, Never: {}-{}", games_won[0], games_won[1]);
-    play_random_game(0, Some(Rank::Ace), true);
+    //play_random_game(0, Some(Rank::Ace), true);
 }
 
 

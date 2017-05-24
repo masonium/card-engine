@@ -1,32 +1,9 @@
-use germanwhist::{self, Action, ActionError, GameEvent,
+use germanwhist::{self, Action, ActionError,
                   Round, PlayerState, ScoringRules};
 
+use learning::model::{LearningModel, LearningModelError};
 use ndarray::prelude::*;
-use ndarray::Data;
 use rand::{Rng, thread_rng};
-
-pub enum LearningModelError {
-    MismatchedSize
-}
-
-/// Reinforcement Learning traits and implementations
-pub trait LearningModel {
-    // Evaluate the gradient
-    fn evaluate_q(&self, ArrayView<f32, Ix1>) -> f32;
-
-    // Compute q, and the gradient.
-    fn evaluate_q_grad(&self, p: &ArrayView<f32, Ix1>, grad: ArrayViewMut<f32, Ix1>) -> f32;
-
-    // input size
-    fn input_size(&self) -> usize;
-
-    // num parameters
-    fn num_parameters(&self) -> usize;
-
-    // Update the weights of the model
-    fn update_weights<T: Data<Elem=f32>>(&mut self, error: f32, dir: &ArrayBase<T, Ix1>);
-
-}
 
 pub struct SarsaLambdaParameters {
     lambda: f32,
@@ -34,14 +11,19 @@ pub struct SarsaLambdaParameters {
     eps: f32
 }
 
+impl Default for SarsaLambdaParameters {
+    fn default() ->  Self {
+        SarsaLambdaParameters { gamma: 1.0, lambda:  0.4, eps: 0.01 }
+    }
+}
 pub struct SarsaPlayer {
-    state: PlayerState,
+    pub state: PlayerState,
     e_trace: Array<f32, Ix1>,
     last_q: f32
 }
 
 impl SarsaPlayer {
-    fn new(state: PlayerState, model_size: usize) -> SarsaPlayer {
+    pub fn new(state: PlayerState, model_size: usize) -> SarsaPlayer {
         let e_trace = Array::zeros(model_size);
 
         SarsaPlayer { state,  e_trace, last_q: 0.0 }
@@ -50,6 +32,8 @@ impl SarsaPlayer {
     /// Choose an epsilon-greedy action.
     fn epsilon_greedy_action<M: LearningModel>(&self, model: &M, eps: f32,
                                                actions: &[Action], mut sa: ArrayViewMut<f32, Ix1>) -> Action {
+        assert_eq!(sa.dim(), PlayerState::state_action_size());
+
         /// epsilon-greedy state-choosing
         let mut rng = thread_rng();
         let r = rng.next_f32();
@@ -67,10 +51,10 @@ impl SarsaPlayer {
 
     /// Fill in the state action input `sa` most beneficial action of those provided in the
     /// current state, returning the Q-value at that state.
-    fn greedy_action<M: LearningModel>(&self, model: &M, actions: &[Action], mut sa: ArrayViewMut<f32, Ix1>) -> Action {
+    pub fn greedy_action<M: LearningModel>(&self, model: &M, actions: &[Action], mut sa: ArrayViewMut<f32, Ix1>) -> Action {
         let (max_action, _) = actions.iter().zip(actions.iter().map(|a| {
             self.state.state_action_vector(sa.view_mut(), false, Some(a));
-            model.evaluate_q(sa.view())
+            model.evaluate_q(&sa.view())
         })).max_by(|a, b| a.1.partial_cmp(&b.1).unwrap()).expect("action list should not be empty");
 
         self.state.state_action_vector(sa, false, Some(max_action));
@@ -91,7 +75,7 @@ impl<M: LearningModel> SarsaLambda<M> {
         let players = [SarsaPlayer::new(PlayerState::new(0), model.num_parameters()),
                        SarsaPlayer::new(PlayerState::new(1), model.num_parameters())];
 
-        if players[0].state.state_vector_size() != model.input_size() {
+        if PlayerState::state_size() + PlayerState::action_size() != model.input_size() {
             return Err(LearningModelError::MismatchedSize);
         }
 
@@ -101,9 +85,14 @@ impl<M: LearningModel> SarsaLambda<M> {
                          param })
     }
 
+    pub fn current_model(&self) -> &M {
+        &self.model
+    }
+
     pub fn train_on_episode(&mut self) -> Result<(), ActionError> {
         // start a new round
         let ev = self.engine.start_round(None);
+
         for i in 0..2 {
             self.players[i].e_trace.fill(0.0);
             for e in &ev[i] {
@@ -111,8 +100,8 @@ impl<M: LearningModel> SarsaLambda<M> {
             }
         }
 
-        let mut player_action = Array::zeros(self.players[0].state.state_vector_size());
-        let mut grad = Array::zeros(self.players[0].state.state_vector_size());
+        let mut player_action = Array::zeros(PlayerState::state_action_size());
+        let mut grad = Array::zeros(self.model.num_parameters());
 
         // Evaluate the episode, tracking and updating the trace for each player
         while !self.engine.is_game_over() {
@@ -154,6 +143,7 @@ impl<M: LearningModel> SarsaLambda<M> {
         // Once the game is over, perform the final update based on the game result.
         let winner = self.engine.winner().expect("must be a winner at game-over phase.");
         let loser = 1 - winner;
+        print!("{}", winner);
         self.model.update_weights(1.0 - self.players[winner].last_q, &self.players[winner].e_trace);
         self.model.update_weights(0.0 - self.players[loser].last_q, &self.players[loser].e_trace);
         Ok(())
