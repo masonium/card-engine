@@ -112,7 +112,7 @@ impl Round {
     pub fn winner(&self) -> Option<usize> {
         if self.is_game_over() {
             let s = &self.state.score;
-            Some(if s[0] < s[1] { 1 } else  { 0 })
+            Some(if s[0] < s[1] { 1 } else { 0 })
         } else {
             None
         }

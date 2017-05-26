@@ -52,7 +52,7 @@ impl ActivationFunction {
         }
     }
 
-    fn agf(&self) -> (fn(f32, f32) -> f32) {
+    pub fn agf(&self) -> (fn(f32, f32) -> f32) {
         use self::ActivationFunction::*;
         match *self {
             Linear => grad_linear,
@@ -125,6 +125,8 @@ fn mat_t_vec_mul<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix1>,
           Tb: Data<Elem = f32>,
           Tc: DataMut<Elem = f32>
 {
+    assert_eq!(a.dim().0, b.dim());
+    assert_eq!(a.dim().1, c.dim());
 
     for (ci, ar) in izip!(c, a.axis_iter(Axis(1))) {
         *ci = ar.dot(b);
@@ -199,13 +201,14 @@ impl Layer {
                                   self.m.outer_iter(),
                                   &self.bias,
                                   &mut dbias) {
+            assert_eq!(r.dim(), input.dim());
             let pa = r.dot(input) + b;
             *a = f(pa);
-            *x = g(pa, *a);
+            *x = g(pa, *a); // theta'(pa)
         }
 
         // compute the gradient of the weights, with respect to the outputs
-        outer_product(&mut dm, &dbias, input);
+        outer_product(&mut dm, &dbias, input); // theta'(pa) * input
     }
 
     pub fn evaluate_partial_g<T1>(&self,
@@ -226,8 +229,12 @@ impl Layer {
                                        g: ArrayViewMut<f32, Ix1>)
                                        -> Array1<f32> {
         assert_eq!(dout.dim(), self.num_outputs());
+        
         let (dml, mut dbias) = g.split_at(Axis(0), self.m.len());
         let mut dm = dml.into_shape(self.m.dim()).expect("must match.");
+
+        let mut din = Array::zeros(self.num_inputs());
+        mat_t_vec_mul(&mut din, &dm, dout);
 
         // We assume that we previously called evaluate*_partial_g. Now, we finish.
         // Finish gradient w/rt weight
@@ -240,8 +247,6 @@ impl Layer {
         // Finish gradient w/rt bias
         Zip::from(&mut dbias).and(dout).apply(|a, b| *a *= *b);
 
-        let mut din = Array::zeros(self.num_inputs());
-        mat_t_vec_mul(&mut din, &dm, dout);
         din
     }
 
@@ -262,6 +267,7 @@ impl Layer {
     fn dump(&self) {
         println!("W:\n{}\nb\n{}\n",self.m, self.bias);
     }
+
     fn weights(&self, v: ArrayViewMut<f32, Ix1>) {
         assert!(v.dim() == self.num_parameters());
         let (mut ml, mut bias) = v.split_at(Axis(0), self.m.len());
@@ -272,6 +278,7 @@ impl Layer {
 
 }
 
+#[derive(Clone)]
 pub struct NeuralNetworkParameters {
     pub learning_rate: f32,
 }
@@ -280,6 +287,8 @@ pub struct NeuralNetworkParameters {
 pub struct NeuralNet {
     layers: Vec<Layer>,
     param: NeuralNetworkParameters,
+    current_rate: f32,
+    ni: usize,
 }
 
 impl NeuralNet {
@@ -293,9 +302,18 @@ impl NeuralNet {
         }
 
         Some(NeuralNet {
-                 layers: layers.iter().map(Layer::from_desc).collect(),
-                 param: NeuralNetworkParameters { learning_rate: lr },
+            layers: layers.iter().map(Layer::from_desc).collect(),
+            current_rate: lr, ni: 0, 
+            param: NeuralNetworkParameters { learning_rate: lr },
              })
+    }
+
+    pub fn split_at(mut self, n: usize) -> (NeuralNet, NeuralNet) {
+        let b = self.layers.split_off(n);
+        (NeuralNet { layers: self.layers, param: self.param.clone(), 
+                     current_rate: self.current_rate, ni: self.ni },
+         NeuralNet { layers: b, param: self.param, current_rate: self.current_rate,
+                     ni: self.ni})
     }
 
     // Dimensions of the input
@@ -339,7 +357,6 @@ impl NeuralNet {
         assert_eq!(input.dim(), self.layers[0].num_inputs());
         self.layers.iter().fold(input.to_owned(), |x, layer| { 
             let y = layer.evaluate(&x);
-            //println!("{}", y);
             y })
     }
 
@@ -351,14 +368,14 @@ impl NeuralNet {
         where T1: Data<Elem = f32>
     {
         assert_eq!(input.dim(), self.layers[0].num_inputs());
-
+        gradient.fill(0.0);
+        
         let output = self.layers
             .iter()
             .fold((input.to_owned(), gradient.view_mut()), |(x, gv), layer| {
                 let (g, ogv) = gv.split_at(Axis(0), layer.num_parameters());
                 (layer.evaluate_partial_g(&x, g), ogv)
-            })
-            .0;
+            }).0;
 
         let dout = Array::from_elem(self.num_outputs(), 1.0);
         self.layers
@@ -375,7 +392,8 @@ impl NeuralNet {
 
     /// Move all weights by a factor of alpha * e * grad(x)
     pub fn update_weights(&mut self, err: f32, w: ArrayView<f32, Ix1>) {
-        let lre = self.param.learning_rate * err;
+        self.ni += 1;
+        let lre = self.param.learning_rate * err * 1.0 / (1.0 + 0.001 * (self.ni as f32));
         self.layers
             .iter_mut()
             .fold(w, |weights, layer| {
@@ -419,8 +437,9 @@ mod tests {
         for r in Array::linspace(-1.95, 1.95, 40).iter() {
             let g_est = (f(r + 5e-4) - f(r - 5e-4)) / 1e-3;
             let g_actual = g(*r, f(*r));
+
             println!("{} vs. {}", g_est, g_actual);
-            assert!((g_est - g_actual).abs() < 2e-3);
+            assert!((g_est - g_actual).abs() < 1e-3);
         }
     }
 

@@ -225,10 +225,9 @@ fn test_against<P: Player>(nn: &NeuralNet, oppo: P) -> f32 {
 fn main() {
     cards::auto_suit_colors();
     let sa = PlayerState::action_size() + PlayerState::state_size();
-    let nn = NeuralNet::new(&[LayerDesc::new(sa, sa*4, ActivationFunction::SymmetricSigmoid),
-                              LayerDesc::new(sa*4, 20, ActivationFunction::SymmetricSigmoid),
-                              LayerDesc::new(20, 1, ActivationFunction::Sigmoid)],
-                            0.1).unwrap();
+    let nn = NeuralNet::new(&[LayerDesc::new(sa, 100, ActivationFunction::SymmetricSigmoid),
+                              LayerDesc::new(100, 1, ActivationFunction::Sigmoid)],
+                            0.05).unwrap();
 
     let mut sl = SarsaLambda::new((0, 1), nn, SarsaLambdaParameters::default())
         .ok().expect("sarsa lambda creation");
@@ -242,12 +241,14 @@ fn main() {
             basic_sd = basic_sd * decay + test_against(sl.current_model(), BasicPlayer::new(None)) * (1.0 - decay);
             random_sd = random_sd * decay + test_against(sl.current_model(), RandomPlayer) * (1.0 - decay);
             br_sd = br_sd * decay + basic_random_game() * (1.0 - decay);
+        }
+        if i % 100 == 0 {
             println!("{:10}, {}, {}, {}", i, basic_sd, random_sd, br_sd);
         }
         if i % 1000 == 0 {
             println!("{}", time::now().strftime("%H:%M:%S").ok().unwrap());
         }
-        sl.train_on_episode();
+        sl.train_on_episode(false);
     }
 
     //play_random_game(0, Some(Rank::Ace), true);
