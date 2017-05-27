@@ -10,8 +10,12 @@ pub enum ActivationFunction {
     Sigmoid,
     SymmetricSigmoid,
     ReLU,
+    Exp
 }
 
+fn activate_exponential(x: f32) -> f32 {
+    x.exp()
+}
 fn activate_linear(x: f32) -> f32 {
     x
 }
@@ -30,7 +34,12 @@ fn activate_relu(x: f32) -> f32 {
 
 fn grad_linear(_x: f32, _f: f32) -> f32 {
     1.0
+
 }
+fn grad_exponential(_x: f32, f: f32) -> f32 {
+    f
+}
+
 fn grad_logistic(_x: f32, f: f32) -> f32 {
     f * (1.0 - f)
 }
@@ -49,6 +58,7 @@ impl ActivationFunction {
             Sigmoid => activate_logistic,
             SymmetricSigmoid => activate_ss,
             ReLU => activate_relu,
+            Exp => activate_exponential,
         }
     }
 
@@ -59,6 +69,7 @@ impl ActivationFunction {
             Sigmoid => grad_logistic,
             SymmetricSigmoid => grad_ss,
             ReLU => grad_relu,
+            Exp => grad_exponential
         }
     }
 }
@@ -90,7 +101,7 @@ struct Layer {
 }
 
 /// take the outer-product of a and b, applying it to c
-fn outer_product<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix2>,
+pub fn outer_product<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix2>,
                              a: &ArrayBase<Ta, Ix1>,
                              b: &ArrayBase<Tb, Ix1>)
     where Ta: Data<Elem = f32>,
@@ -112,6 +123,9 @@ pub fn mat_vec_mul<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix1>,
           Tb: Data<Elem = f32>,
           Tc: DataMut<Elem = f32>
 {
+    assert_eq!(a.dim().0, c.dim());
+    assert_eq!(a.dim().1, b.dim());
+    
     for (ci, ar) in izip!(c, a.outer_iter()) {
         *ci = ar.dot(b);
     }
@@ -138,6 +152,8 @@ impl Layer {
         let std = (desc.num_outputs as f64).sqrt();
         let m = Array::random((desc.num_outputs, desc.num_inputs),
                               F32(distributions::Normal::new(0.0, std)));
+        // let m = Array::linspace(0.0, 1.0, desc.num_inputs * desc.num_outputs)
+        //     .into_shape((desc.num_outputs, desc.num_inputs)).unwrap();
         let bias = Array::zeros(desc.num_outputs);
 
         Layer {
@@ -204,7 +220,7 @@ impl Layer {
             assert_eq!(r.dim(), input.dim());
             let pa = r.dot(input) + b;
             *a = f(pa);
-            *x = g(pa, *a); // theta'(pa)
+            *x = g(pa, *a); 
         }
 
         // compute the gradient of the weights, with respect to the outputs
@@ -225,29 +241,29 @@ impl Layer {
     /// Complete the evaluation of the gradient, taking in the
     /// gradient with respect to the outputs.
     fn complete_g<T: Data<Elem = f32>>(&self,
-                                       dout: &ArrayBase<T, Ix1>,
+                                       de_dout: &ArrayBase<T, Ix1>,
                                        g: ArrayViewMut<f32, Ix1>)
                                        -> Array1<f32> {
-        assert_eq!(dout.dim(), self.num_outputs());
+        assert_eq!(de_dout.dim(), self.num_outputs());
         
-        let (dml, mut dbias) = g.split_at(Axis(0), self.m.len());
-        let mut dm = dml.into_shape(self.m.dim()).expect("must match.");
-
-        let mut din = Array::zeros(self.num_inputs());
-        mat_t_vec_mul(&mut din, &dm, dout);
+        let (dml, mut dout_dbias) = g.split_at(Axis(0), self.m.len());
+        let mut dout_dm = dml.into_shape(self.m.dim()).expect("must match.");
 
         // We assume that we previously called evaluate*_partial_g. Now, we finish.
         // Finish gradient w/rt weight
-        for (mut row, di) in dm.outer_iter_mut().zip(dout) {
+        for (mut row, di) in dout_dm.outer_iter_mut().zip(de_dout) {
             for x in row.iter_mut() {
                 *x *= *di;
             }
         }
 
         // Finish gradient w/rt bias
-        Zip::from(&mut dbias).and(dout).apply(|a, b| *a *= *b);
+        dout_dbias *= de_dout;
 
-        din
+        let mut de_din = Array::zeros(self.num_inputs());
+        mat_t_vec_mul(&mut de_din, &self.m, de_dout);
+
+        de_din
     }
 
     /// Apply the gradient
@@ -284,6 +300,7 @@ pub struct NeuralNetworkParameters {
 }
 
 /// Neural network
+#[derive(Clone)]
 pub struct NeuralNet {
     layers: Vec<Layer>,
     param: NeuralNetworkParameters,
@@ -330,6 +347,7 @@ impl NeuralNet {
         self.layers.iter().map(|layer| layer.num_parameters()).sum()
     }
 
+    /// Flattened version of all weights, by layer
     pub fn weights(&self) -> Array<f32, Ix1> {
         let mut arr = Array::zeros(self.num_parameters());
         self.layers.iter().fold(arr.view_mut(), |view, layer| {
@@ -340,11 +358,11 @@ impl NeuralNet {
         arr
     }
 
-    pub fn dump(&self)  {
-        for l in &self.layers {
-            l.dump();
-        }
-    }
+    // pub fn dump(&self)  {
+    //     for l in &self.layers {
+    //         l.dump();
+    //     }
+    // }
 
     pub fn l1(&self) -> f32 {
         self.layers.iter().map(|layer| layer.l1()).sum()
@@ -377,11 +395,13 @@ impl NeuralNet {
                 (layer.evaluate_partial_g(&x, g), ogv)
             }).0;
 
-        let dout = Array::from_elem(self.num_outputs(), 1.0);
+        //println!("half-way: {:8.5}", gradient);
+
+        let de_dout = Array::from_elem(self.num_outputs(), 1.0);
         self.layers
             .iter()
             .rev()
-            .fold((dout, gradient), |(x, gv), layer| {
+            .fold((de_dout, gradient), |(x, gv), layer| {
                 let split_loc = gv.len() - layer.num_parameters();
                 let (ogv, g) = gv.split_at(Axis(0), split_loc);
                 (layer.complete_g(&x, g), ogv)
