@@ -1,4 +1,4 @@
-///
+/// Player state representation
 use hand_belief::HandBelief;
 use ndarray::prelude::*;
 use std::collections::HashSet;
