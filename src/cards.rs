@@ -16,7 +16,6 @@ pub enum ColorMode {
 
 static mut SUIT_COLOR_MODE: ColorMode = ColorMode::Unique;
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
     Black,
@@ -37,7 +36,7 @@ static ALL_SUITS: [Suit; 4] = [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::
 impl Suit {
     /// iterate through all elements of suit
     pub fn iterator() -> Iter<'static, Suit> {
-        ALL_SUITS.into_iter()
+        ALL_SUITS.iter()
     }
 
     pub fn color(&self) -> Color {
@@ -82,7 +81,6 @@ impl FromStr for Suit {
 impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Suit::*;
-
 
         lazy_static! {
             static ref RED: String = format!("{}", color::Fg(color::Red));
@@ -141,7 +139,7 @@ static ALL_RANKS: [Rank;  13] = [Rank::Two, Rank::Three, Rank::Four,
 
 impl Rank {
     pub fn iterator() -> Iter<'static, Rank> {
-        ALL_RANKS.into_iter()
+        ALL_RANKS.iter()
     }
     /// Assign numerical values to each rank, with ace as high
     pub fn ord_ace_high(&self) -> u8 {

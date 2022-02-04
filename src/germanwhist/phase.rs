@@ -14,7 +14,7 @@ pub trait GamePhase {
     fn format(&self, gs: &GameState) -> String;
 
     /// ending the state
-    fn transition(&mut self, gs: &mut GameState) -> Box<GamePhase>;
+    fn transition(&mut self, gs: &mut GameState) -> Box<dyn GamePhase>;
 }
 
 pub struct PlayingPhase;
@@ -40,7 +40,7 @@ impl GamePhase for PlayingPhase {
         let mut events = [Vec::new(), Vec::new()];
 
         if gs.played.is_none() {
-            /// this is the first card played
+            // this is the first card played
             gs.player_view_mut(action.player).remove_card(&action.card)?;
 
             events[0].push(GameEvent::Action(action.clone()));
@@ -87,7 +87,7 @@ impl GamePhase for PlayingPhase {
 
             // hand-building phase
             if gs.revealed.is_some() {
-                /// Give players their new cards
+                // Give players their new cards
                 {
                     let r = gs.revealed.take().expect("must be a revealed card");
                     gs.player_view_mut(winner).add_card(r.clone());
@@ -161,7 +161,7 @@ impl GamePhase for PlayingPhase {
 
 
     /// Once we're done playing, finish.
-    fn transition(&mut self, _: &mut GameState) -> Box<GamePhase> {
+    fn transition(&mut self, _: &mut GameState) -> Box<dyn GamePhase> {
         Box::new(GameOverPhase {})
     }
 
@@ -187,7 +187,7 @@ impl GamePhase for GameOverPhase {
         true
     }
 
-    fn transition(&mut self, _: &mut GameState) -> Box<GamePhase> {
+    fn transition(&mut self, _: &mut GameState) -> Box<dyn GamePhase> {
         Box::new(GameOverPhase{})
     }
 }

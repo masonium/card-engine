@@ -51,7 +51,7 @@ fn grad_relu(x: f32, _f: f32) -> f32 {
 }
 
 impl ActivationFunction {
-    pub fn af(&self) -> (fn(f32) -> f32) {
+    pub fn af(&self) -> fn(f32) -> f32 {
         use self::ActivationFunction::*;
         match *self {
             Linear => activate_linear,
@@ -62,7 +62,7 @@ impl ActivationFunction {
         }
     }
 
-    pub fn agf(&self) -> (fn(f32, f32) -> f32) {
+    pub fn agf(&self) -> fn(f32, f32) -> f32 {
         use self::ActivationFunction::*;
         match *self {
             Linear => grad_linear,
@@ -280,7 +280,9 @@ impl Layer {
             .apply(|a, da| *a += da * rate);
     }
 
-    fn dump(&self) {
+
+    #[allow(unused)]
+    pub fn dump(&self) {
         println!("W:\n{}\nb\n{}\n",self.m, self.bias);
     }
 

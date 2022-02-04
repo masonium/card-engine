@@ -10,7 +10,7 @@ pub enum LearningModelError {
 /// Reinforcement Learning traits and implementations
 pub trait LearningModel {
     // Evaluate the gradient
-    fn evaluate_q(&self, &ArrayView<f32, Ix1>) -> f32;
+    fn evaluate_q(&self, p: &ArrayView<f32, Ix1>) -> f32;
 
     // Compute q, and the gradient.
     fn evaluate_q_grad(&self, p: &ArrayView<f32, Ix1>, grad: ArrayViewMut<f32, Ix1>) -> f32;

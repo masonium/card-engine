@@ -68,14 +68,14 @@ pub type ScoringRules = (usize, usize);
 /// Game engine for a round of German Whist
 pub struct Round {
     state: GameState,
-    phase: Box<GamePhase>,
+    phase: Box<dyn GamePhase>,
     rules: ScoringRules,
 }
 
 impl Round {
     pub fn new(rules: ScoringRules) -> Round {
         let state = GameState::new(0);
-        let phase: Box<GamePhase> = Box::new(GameOverPhase{});
+        let phase: Box<dyn GamePhase> = Box::new(GameOverPhase{});
         Round { state, phase: phase, rules }
     }
 
@@ -123,7 +123,7 @@ impl Round {
         self.phase.as_ref().possible_actions(&self.state)
     }
 
-    pub fn get_phase(&self) -> &GamePhase {
+    pub fn get_phase(&self) -> &dyn GamePhase {
         use std::borrow::Borrow;
         self.phase.as_ref().borrow()
     }

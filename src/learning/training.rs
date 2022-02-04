@@ -45,7 +45,7 @@ impl SarsaPlayer {
                                                -> Action {
         assert_eq!(sa.dim(), PlayerState::state_action_size());
 
-        /// epsilon-greedy state-choosing
+        // epsilon-greedy state-choosing
         let mut rng = thread_rng();
         let r = rng.next_f32();
 
