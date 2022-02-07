@@ -1,7 +1,7 @@
-use std::slice;
-use std::cmp::Ordering;
+use super::engine::ActionError;
 use crate::cards::{BasicCard, BasicDeck, Suit};
-use super::engine::{ActionError};
+use std::cmp::Ordering;
+use std::slice;
 
 #[derive(Debug)]
 pub struct GameState {
@@ -28,7 +28,6 @@ pub struct GameState {
 
     // currently revealed card, if any
     pub revealed: Option<BasicCard>,
-
 }
 
 impl GameState {
@@ -37,8 +36,7 @@ impl GameState {
         let mut deck = BasicDeck::new();
         deck.shuffle();
 
-        let hands = [deck.draw_n(13).unwrap(),
-                     deck.draw_n(13).unwrap()];
+        let hands = [deck.draw_n(13).unwrap(), deck.draw_n(13).unwrap()];
         let c = deck.draw().expect("deck has 26 cards left");
         let trump = c.suit;
         let score = [0, 0];
@@ -46,20 +44,29 @@ impl GameState {
         let played = None;
         let rounds_left = 26;
 
-        GameState { deck, hands, score, trump,
-                    active, played, rounds_left, revealed: Some(c) }
+        GameState {
+            deck,
+            hands,
+            score,
+            trump,
+            active,
+            played,
+            rounds_left,
+            revealed: Some(c),
+        }
     }
 
     /// Return a mutable view of the player's hand.
-    pub fn player_view_mut(& mut self, player: usize) -> PlayerViewMut {
-        PlayerViewMut { hand: &mut self.hands[player] }
+    pub fn player_view_mut(&mut self, player: usize) -> PlayerViewMut {
+        PlayerViewMut {
+            hand: &mut self.hands[player],
+        }
     }
 
     /// Return an immutable view of the player's hand.
     pub fn player_view(&self, player: usize) -> PlayerView {
         PlayerView::from_state(player, self)
     }
-
 
     /// Return true iff the leading player wins the trick
     pub fn score_hand(&self, leading: &BasicCard, following: &BasicCard) -> Option<bool> {
@@ -68,7 +75,10 @@ impl GameState {
         }
 
         if leading.suit == self.trump {
-            Some(following.suit != self.trump || leading.rank.ord_ace_high() > following.rank.ord_ace_high())
+            Some(
+                following.suit != self.trump
+                    || leading.rank.ord_ace_high() > following.rank.ord_ace_high(),
+            )
         } else {
             Some(if following.suit == self.trump {
                 false
@@ -94,8 +104,8 @@ impl GameState {
     ///
     /// Group by suit, trumps first, ordered within suit, ace_high
     pub fn display_order(&self, c1: &BasicCard, c2: &BasicCard) -> Ordering {
-        let s1 = c1.suit.ord() + if  c1.suit != self.trump { 4 } else { 0 };
-        let s2 = c2.suit.ord() + if  c2.suit != self.trump { 4 } else { 0 };
+        let s1 = c1.suit.ord() + if c1.suit != self.trump { 4 } else { 0 };
+        let s2 = c2.suit.ord() + if c2.suit != self.trump { 4 } else { 0 };
         (s1, c1.rank.ord_ace_high()).cmp(&(s2, c2.rank.ord_ace_high()))
     }
 }
@@ -121,14 +131,12 @@ impl<'a> PlayerViewMut<'a> {
     /// error if the player didn't own the card.
     pub fn remove_card(&mut self, c: &BasicCard) -> Result<(), ActionError> {
         let p = self.hand.iter().position(|x| x == c);
-        match p  {
+        match p {
             Some(i) => {
                 self.hand.remove(i);
                 Ok(())
-            },
-            None => {
-                Err(ActionError::MissingCard)
             }
+            None => Err(ActionError::MissingCard),
         }
     }
 }
@@ -144,18 +152,19 @@ pub struct PlayerView<'a> {
 
     pub trump: Suit,
 
-    pub score: [usize; 2]
+    pub score: [usize; 2],
 }
 
 impl<'a> PlayerView<'a> {
     pub fn from_state(player: usize, gs: &GameState) -> PlayerView {
-
-        PlayerView { player,
-                     hand: &gs.hands[player],
-                     revealed: gs.revealed,
-                     leading_card: gs.played,
-                     trump: gs.trump,
-                     score: gs.score }
+        PlayerView {
+            player,
+            hand: &gs.hands[player],
+            revealed: gs.revealed,
+            leading_card: gs.played,
+            trump: gs.trump,
+            score: gs.score,
+        }
     }
 
     /// Return the set of cards playable in the current state.

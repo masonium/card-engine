@@ -1,11 +1,11 @@
-/// modules for storing player and opponent model
-use std::collections::HashMap;
-use itertools::{izip, iproduct};
 use crate::cards::prelude::*;
-use std::fmt;
-use std::cmp;
+use itertools::{iproduct, izip};
 use ndarray::prelude::*;
 use ndarray::DataMut;
+use std::cmp;
+/// modules for storing player and opponent model
+use std::collections::HashMap;
+use std::fmt;
 
 /// A `CardState` is an internal tracker for the likelihood of a
 /// specific card.
@@ -22,7 +22,7 @@ enum CardState {
     Prob(f32),
 
     /// The player definitely has this card.
-    Owns
+    Owns,
 }
 
 impl CardState {
@@ -33,14 +33,14 @@ impl CardState {
             CardState::Played => 0.0,
             CardState::Void => 0.0,
             CardState::Owns => 1.0,
-            CardState::Prob(ref p) => *p
+            CardState::Prob(ref p) => *p,
         }
     }
 
     /// Return a zero-probability state if the current state is
     /// `Void`. Otherwise, return the same state.
     pub fn void_to_zero(&mut self) -> Self {
-        if let CardState::Void = *self  {
+        if let CardState::Void = *self {
             CardState::Prob(0.0)
         } else {
             *self
@@ -62,7 +62,7 @@ impl fmt::Display for CardState {
             Played => write!(fmt, "{:1$}", "----", w),
             Void => write!(fmt, "{:1$}", "VOID", w),
             Owns => write!(fmt, "{:1$}", "MINE", w),
-            Prob(p) => write!(fmt, "{:.1$}", p, w-2)
+            Prob(p) => write!(fmt, "{:.1$}", p, w - 2),
         }
     }
 }
@@ -95,7 +95,7 @@ impl Default for HandBelief {
 
 impl HandBelief {
     pub fn new() -> HandBelief {
-	Self::default()
+        Self::default()
     }
 
     /// Reset the entire hand to void.
@@ -112,7 +112,10 @@ impl HandBelief {
 
     /// Return the probability that the player has the card.
     pub fn p(&self, card: &BasicCard) -> f32 {
-        self.probs.get(card).expect("All basic cards should be in probability map.").p()
+        self.probs
+            .get(card)
+            .expect("All basic cards should be in probability map.")
+            .p()
     }
 
     /// Return the total number of cards held by the player
@@ -122,7 +125,7 @@ impl HandBelief {
 
     /// Return false iff any card in the iteration has zero
     /// probaability.
-    pub fn matches_hand<'a, T: Iterator<Item=&'a BasicCard>>(&self, mut iter: T) -> bool {
+    pub fn matches_hand<'a, T: Iterator<Item = &'a BasicCard>>(&self, mut iter: T) -> bool {
         iter.all(|c| self.p(c) > 0.0)
     }
 
@@ -135,18 +138,25 @@ impl HandBelief {
                 *p += ec / nc;
             }
         }
-
     }
 
     /// Transfer the probability from cards satisfying the predicate
     /// to cards that don't.
     fn transfer_probability_to<F: Fn(BasicCard) -> bool>(&mut self, pred: F) {
-        let (p_dist, count) = self.probs.iter()
-            .filter_map(|(k, v)| if !pred(*k) && v.is_prob() { Some(v.p()) } else { None } )
+        let (p_dist, count) = self
+            .probs
+            .iter()
+            .filter_map(|(k, v)| {
+                if !pred(*k) && v.is_prob() {
+                    Some(v.p())
+                } else {
+                    None
+                }
+            })
             .fold((0.0, 0.0), |state, m| (state.0 + m, state.1 + 1.0));
 
         let nc = self.num_candidates();
-        let p_inc = p_dist / (nc - count) ;
+        let p_inc = p_dist / (nc - count);
 
         for (card, p) in self.probs.iter_mut() {
             if let CardState::Prob(ref mut pp) = p {
@@ -220,11 +230,18 @@ impl HandBelief {
     }
 
     /// Write the probabilities onto a vector in the given suit order.
-    pub fn onto_vector<T: DataMut<Elem=f32>>(&self, vec: &mut ArrayBase<T, Ix1>, suit_order: &[Suit]) {
+    pub fn onto_vector<T: DataMut<Elem = f32>>(
+        &self,
+        vec: &mut ArrayBase<T, Ix1>,
+        suit_order: &[Suit],
+    ) {
         assert_eq!(vec.dim(), NUM_BASIC_CARDS);
 
         for ((suit, rank), v) in izip!(iproduct!(suit_order, Rank::iterator()), vec.iter_mut()) {
-            let card = BasicCard{suit: *suit, rank: *rank};
+            let card = BasicCard {
+                suit: *suit,
+                rank: *rank,
+            };
             *v = self.probs.get(&card).map(|v| v.p()).unwrap_or(0.0);
         }
     }
@@ -233,6 +250,10 @@ impl HandBelief {
 impl fmt::Display for HandBelief {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         format_card_map(&self.probs, fmt)?;
-        writeln!(fmt, "Num Cards: {:.1}", self.probs.values().map(|v| v.p()).sum::<f32>())
+        writeln!(
+            fmt,
+            "Num Cards: {:.1}",
+            self.probs.values().map(|v| v.p()).sum::<f32>()
+        )
     }
 }

@@ -1,10 +1,9 @@
+use crate::learning::neural_net::NeuralNet;
 use ndarray::prelude::*;
 use ndarray::Data;
-use crate::learning::neural_net::NeuralNet;
-
 
 pub enum LearningModelError {
-    MismatchedSize
+    MismatchedSize,
 }
 
 /// Reinforcement Learning traits and implementations
@@ -22,8 +21,7 @@ pub trait LearningModel {
     fn num_parameters(&self) -> usize;
 
     // Update the weights of the model
-    fn update_weights<T: Data<Elem=f32>>(&mut self, error: f32, dir: &ArrayBase<T, Ix1>);
-
+    fn update_weights<T: Data<Elem = f32>>(&mut self, error: f32, dir: &ArrayBase<T, Ix1>);
 }
 
 impl LearningModel for NeuralNet {
@@ -43,7 +41,7 @@ impl LearningModel for NeuralNet {
         self.num_parameters()
     }
 
-    fn update_weights<T: Data<Elem=f32>>(&mut self, error: f32, dir: &ArrayBase<T, Ix1>) {
+    fn update_weights<T: Data<Elem = f32>>(&mut self, error: f32, dir: &ArrayBase<T, Ix1>) {
         self.update_weights(error, dir.view())
     }
 }

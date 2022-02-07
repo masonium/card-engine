@@ -1,18 +1,18 @@
-use once_cell::sync::Lazy;
-use termion::color;
-use std::str::FromStr;
-use std::fmt;
-use rand::{Rng, thread_rng};
-use std::slice::Iter;
-use std::collections::HashMap;
 use atty;
+use once_cell::sync::Lazy;
+use rand::{thread_rng, Rng};
+use std::collections::HashMap;
+use std::fmt;
+use std::slice::Iter;
+use std::str::FromStr;
+use termion::color;
 
 #[derive(Debug, Clone, Copy)]
 #[repr(usize)]
 pub enum ColorMode {
     Plain = 0,
     RedBlack = 1,
-    Unique = 2
+    Unique = 2,
 }
 
 static mut SUIT_COLOR_MODE: ColorMode = ColorMode::Unique;
@@ -20,7 +20,7 @@ static mut SUIT_COLOR_MODE: ColorMode = ColorMode::Unique;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
     Black,
-    Red
+    Red,
 }
 
 #[repr(u8)]
@@ -29,7 +29,7 @@ pub enum Suit {
     Clubs = 0,
     Diamonds = 1,
     Hearts = 2,
-    Spades = 3
+    Spades = 3,
 }
 
 static ALL_SUITS: [Suit; 4] = [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades];
@@ -43,7 +43,7 @@ impl Suit {
     pub fn color(&self) -> Color {
         match *self {
             Suit::Diamonds | Suit::Hearts => Color::Red,
-            _ => Color::Black
+            _ => Color::Black,
         }
     }
 
@@ -61,20 +61,20 @@ impl From<u8> for Suit {
 #[derive(Debug)]
 pub enum CardParseError {
     BadSuit,
-    BadRank
+    BadRank,
 }
 
 impl FromStr for Suit {
     type Err = CardParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use Suit::*;
         use self::CardParseError::*;
+        use Suit::*;
         match s {
             "♣" => Ok(Clubs),
             "♦" => Ok(Diamonds),
             "♥" => Ok(Hearts),
             "♠" => Ok(Spades),
-            _ => Err(BadSuit)
+            _ => Err(BadSuit),
         }
     }
 }
@@ -83,7 +83,7 @@ impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Suit::*;
 
-	static RED: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Red)));
+        static RED: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Red)));
         static GREEN: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Green)));
         static BLUE: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Blue)));
         static RESET: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Reset)));
@@ -93,23 +93,29 @@ impl fmt::Display for Suit {
                 ColorMode::Plain => ("", ""),
                 ColorMode::RedBlack => match self.color() {
                     Color::Red => (RED.as_str(), RESET.as_str()),
-                    _ => ("", "")
+                    _ => ("", ""),
                 },
                 ColorMode::Unique => match *self {
                     Clubs => (GREEN.as_str(), RESET.as_str()),
                     Hearts => (RED.as_str(), RESET.as_str()),
                     Diamonds => (BLUE.as_str(), RESET.as_str()),
-                    _ => ("", "")
-                }
+                    _ => ("", ""),
+                },
             }
         };
 
-        write!(f, "{}{}{}", begin, match *self {
-            Clubs => "♣",
-            Diamonds => "♦",
-            Hearts => "♥",
-            Spades => "♠"
-        }, end)
+        write!(
+            f,
+            "{}{}{}",
+            begin,
+            match *self {
+                Clubs => "♣",
+                Diamonds => "♦",
+                Hearts => "♥",
+                Spades => "♠",
+            },
+            end
+        )
     }
 }
 
@@ -128,13 +134,24 @@ pub enum Rank {
     Jack = 9,
     Queen = 10,
     King = 11,
-    Ace = 12
+    Ace = 12,
 }
 
-static ALL_RANKS: [Rank;  13] = [Rank::Two, Rank::Three, Rank::Four,
-                                 Rank::Five, Rank::Six, Rank::Seven,
-                                 Rank::Eight, Rank::Nine, Rank::Ten,
-                                 Rank::Jack, Rank::Queen, Rank::King, Rank::Ace];
+static ALL_RANKS: [Rank; 13] = [
+    Rank::Two,
+    Rank::Three,
+    Rank::Four,
+    Rank::Five,
+    Rank::Six,
+    Rank::Seven,
+    Rank::Eight,
+    Rank::Nine,
+    Rank::Ten,
+    Rank::Jack,
+    Rank::Queen,
+    Rank::King,
+    Rank::Ace,
+];
 
 impl Rank {
     pub fn iterator() -> Iter<'static, Rank> {
@@ -150,7 +167,7 @@ impl Rank {
         use Rank::*;
         match *self {
             Ace => 1,
-            x => x as u8
+            x => x as u8,
         }
     }
 }
@@ -164,8 +181,8 @@ impl From<u8> for Rank {
 impl FromStr for Rank {
     type Err = CardParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use Rank::*;
         use self::CardParseError::*;
+        use Rank::*;
         match s {
             "2" => Ok(Two),
             "3" => Ok(Three),
@@ -180,30 +197,33 @@ impl FromStr for Rank {
             "Q" => Ok(Queen),
             "K" => Ok(King),
             "A" => Ok(Ace),
-            _ => Err(BadRank)
+            _ => Err(BadRank),
         }
     }
 }
 
-
 impl fmt::Display for Rank {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Rank::*;
-        write!(f, "{}", match *self {
-            Two => "2",
-            Three => "3",
-            Four => "4",
-            Five => "5",
-            Six => "6",
-            Seven => "7",
-            Eight => "8",
-            Nine => "9",
-            Ten => "T",
-            Jack => "J",
-            Queen => "Q",
-            King => "K",
-            Ace => "A"
-        })
+        write!(
+            f,
+            "{}",
+            match *self {
+                Two => "2",
+                Three => "3",
+                Four => "4",
+                Five => "5",
+                Six => "6",
+                Seven => "7",
+                Eight => "8",
+                Nine => "9",
+                Ten => "T",
+                Jack => "J",
+                Queen => "Q",
+                King => "K",
+                Ace => "A",
+            }
+        )
     }
 }
 
@@ -211,7 +231,7 @@ impl fmt::Display for Rank {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BasicCard {
     pub rank: Rank,
-    pub suit: Suit
+    pub suit: Suit,
 }
 
 impl BasicCard {
@@ -223,7 +243,10 @@ impl BasicCard {
         let mut cards = Vec::with_capacity(52);
         for rank in Rank::iterator() {
             for suit in &[Clubs, Diamonds, Hearts, Spades] {
-                cards.push(BasicCard { rank: *rank, suit: *suit })
+                cards.push(BasicCard {
+                    rank: *rank,
+                    suit: *suit,
+                })
             }
         }
 
@@ -243,21 +266,23 @@ impl FromStr for BasicCard {
 
 impl From<u8> for BasicCard {
     fn from(s: u8) -> Self {
-        BasicCard{ rank: (s / 13).into(), suit: (s % 13).into() }
+        BasicCard {
+            rank: (s / 13).into(),
+            suit: (s % 13).into(),
+        }
     }
 }
 
 impl From<BasicCard> for u8 {
     fn from(s: BasicCard) -> Self {
-        s.rank as u8  + 13 * (s.suit as u8)
+        s.rank as u8 + 13 * (s.suit as u8)
     }
 }
 impl<'a> From<&'a BasicCard> for u8 {
     fn from(s: &BasicCard) -> Self {
-        s.rank as u8  + 13 * (s.suit as u8)
+        s.rank as u8 + 13 * (s.suit as u8)
     }
 }
-
 
 impl fmt::Display for BasicCard {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -269,7 +294,7 @@ impl fmt::Display for BasicCard {
 pub enum Card {
     Basic(BasicCard),
     BigJoker,
-    SmallJoker
+    SmallJoker,
 }
 
 impl fmt::Display for Card {
@@ -278,7 +303,7 @@ impl fmt::Display for Card {
         match self {
             BigJoker => write!(f, "JJ"),
             SmallJoker => write!(f, "jj"),
-            Card::Basic(ref basic) => write!(f, "{}", basic)
+            Card::Basic(ref basic) => write!(f, "{}", basic),
         }
     }
 }
@@ -289,12 +314,14 @@ pub const INUM_BASIC_CARDS: isize = 52;
 /// Deck of 52 basic (non-joker) cards
 #[derive(Debug)]
 pub struct BasicDeck {
-    cards: Vec<BasicCard>
+    cards: Vec<BasicCard>,
 }
 
 impl Default for BasicDeck {
     fn default() -> Self {
-        BasicDeck { cards: BasicCard::all() }
+        BasicDeck {
+            cards: BasicCard::all(),
+        }
     }
 }
 
@@ -363,7 +390,10 @@ impl BasicDeck {
 //     pub fn
 // }
 
-pub fn format_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>, fmt: &mut fmt::Formatter) -> fmt::Result {
+pub fn format_card_map<T: fmt::Display>(
+    map: &HashMap<BasicCard, T>,
+    fmt: &mut fmt::Formatter,
+) -> fmt::Result {
     let col_head = "*-----------".to_string().repeat(4);
     writeln!(fmt, "{}*", &col_head)?;
 
@@ -371,7 +401,10 @@ pub fn format_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>, fmt: &mut f
         write!(fmt, "| ")?;
 
         for suit in Suit::iterator() {
-            let bc = BasicCard { rank: *rank, suit: *suit };
+            let bc = BasicCard {
+                rank: *rank,
+                suit: *suit,
+            };
             write!(fmt, "{}{}: {:5}", rank, suit, *map.get(&bc).unwrap())?;
             write!(fmt, " | ")?;
         }
@@ -389,7 +422,10 @@ pub fn print_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>) {
         print!("| ");
 
         for suit in Suit::iterator() {
-            let bc = BasicCard { rank: *rank, suit: *suit };
+            let bc = BasicCard {
+                rank: *rank,
+                suit: *suit,
+            };
             print!("{}{}: {:5}", rank, suit, *map.get(&bc).unwrap());
             print!(" | ");
         }
@@ -397,7 +433,6 @@ pub fn print_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>) {
     }
     println!("{}*", &col_head);
 }
-
 
 pub fn auto_suit_colors() {
     unsafe {
@@ -410,7 +445,8 @@ pub fn auto_suit_colors() {
 }
 
 pub mod prelude {
-    pub use super::{BasicCard, Suit, Rank, auto_suit_colors,
-                    format_card_map,
-                    print_card_map, NUM_BASIC_CARDS, INUM_BASIC_CARDS};
+    pub use super::{
+        auto_suit_colors, format_card_map, print_card_map, BasicCard, Rank, Suit, INUM_BASIC_CARDS,
+        NUM_BASIC_CARDS,
+    };
 }

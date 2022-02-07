@@ -1,12 +1,12 @@
 #![allow(unused)]
 
-use once_cell::sync::Lazy;
-use ndarray::prelude::*;
 use card_engine::learning::neural_net::*;
-use rand::{Rng, thread_rng};
-use ndarray::linalg::general_mat_vec_mul;
-use std::cmp;
 use clap::{App, Arg};
+use ndarray::linalg::general_mat_vec_mul;
+use ndarray::prelude::*;
+use once_cell::sync::Lazy;
+use rand::{thread_rng, Rng};
+use std::cmp;
 
 const FL: ActivationFunction = ActivationFunction::Sigmoid;
 
@@ -15,9 +15,9 @@ fn f1(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
     arr1(&[FL.af()(v.dot(&A) - 0.11)])
 }
 
-fn f1w(v: &ArrayView<f32, Ix1>) -> Array<f32,Ix1> {
-    static A: Lazy<Array<f32, Ix2>> = Lazy::new(|| arr2(&[[0.3, 0.4, -0.5, 0.8, 0.2],
-                                               [-0.2, 0.6, 0.3, 0.1, 0.1]]));
+fn f1w(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
+    static A: Lazy<Array<f32, Ix2>> =
+        Lazy::new(|| arr2(&[[0.3, 0.4, -0.5, 0.8, 0.2], [-0.2, 0.6, 0.3, 0.1, 0.1]]));
     static B: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[-0.071, 0.4]));;
     let f = FL.af();
     let mut x = B.to_owned();
@@ -25,11 +25,14 @@ fn f1w(v: &ArrayView<f32, Ix1>) -> Array<f32,Ix1> {
     x.map(|r| f(*r))
 }
 
-
 fn f2(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
-    static A1: Lazy<Array<f32, Ix2>> = Lazy::new(|| arr2(&[[0.3, 0.4, -0.5, 0.8, 0.2],
-                                                [0.14, -0.4, -0.5, 0.28, 0.2],
-                                                [0.56, 0.4, 0.75, -0.1, -0.2]]));
+    static A1: Lazy<Array<f32, Ix2>> = Lazy::new(|| {
+        arr2(&[
+            [0.3, 0.4, -0.5, 0.8, 0.2],
+            [0.14, -0.4, -0.5, 0.28, 0.2],
+            [0.56, 0.4, 0.75, -0.1, -0.2],
+        ])
+    });
     static B1: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[0.3, 0.4, -0.5]));
 
     static A2: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[1.0, -0.2, 0.5]));
@@ -43,9 +46,7 @@ fn f2(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
 }
 
 fn f2s(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
-    static A1: Lazy<Array<f32, Ix2>> = Lazy::new(|| arr2(&[[0.1, 0.2],
-                                                [0.3, 0.4],
-                                                [0.5, 0.6]]));
+    static A1: Lazy<Array<f32, Ix2>> = Lazy::new(|| arr2(&[[0.1, 0.2], [0.3, 0.4], [0.5, 0.6]]));
     static B1: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[0.7, 0.8, 0.9]));;
 
     static A2: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[0.6, -0.4, -0.2]));;
@@ -88,7 +89,6 @@ fn train_dual_small_layer(iter: usize) {
     train_nn(nn, f2s, iter);
 }
 
-
 fn debug_nn(mut nn: NeuralNet, target: fn(&ArrayView<f32, Ix1>) -> Array<f32, Ix1>) {
     let mut rng = thread_rng();
     let mut grad = Array::zeros(nn.num_parameters());
@@ -117,11 +117,9 @@ fn debug_nn(mut nn: NeuralNet, target: fn(&ArrayView<f32, Ix1>) -> Array<f32, Ix
     println!("Grad: {:8.5}", grad);
 }
 
-
 fn train_nn(mut nn: NeuralNet, target: fn(&ArrayView<f32, Ix1>) -> Array<f32, Ix1>, niter: usize) {
     let mut rng = thread_rng();
     let mut grad = Array::zeros(nn.num_parameters());
-
 
     let op = cmp::max(niter / 20, 1);
     for i in 0..niter {
@@ -155,16 +153,22 @@ fn train_nn(mut nn: NeuralNet, target: fn(&ArrayView<f32, Ix1>) -> Array<f32, Ix
 fn main() {
     let m = App::new("x")
         .arg(Arg::with_name("ITER").required(true).index(1))
-        .arg(Arg::with_name("FUNC").required(true).index(2)).get_matches();
+        .arg(Arg::with_name("FUNC").required(true).index(2))
+        .get_matches();
 
-    let fi = m.value_of("FUNC").map(|x| x.parse::<usize>().ok().unwrap()).unwrap_or(1);
+    let fi = m
+        .value_of("FUNC")
+        .map(|x| x.parse::<usize>().ok().unwrap())
+        .unwrap_or(1);
     let f = match fi {
         1 => train_single_layer,
         2 => train_single_wide_layer,
         3 => train_dual_layer,
         4 => train_dual_small_layer,
-        _ => panic!("bad entry")
+        _ => panic!("bad entry"),
     };
 
-    f(m.value_of("ITER").map(|x| x.parse::<usize>().ok().unwrap()).unwrap_or(10000));
+    f(m.value_of("ITER")
+        .map(|x| x.parse::<usize>().ok().unwrap())
+        .unwrap_or(10000));
 }

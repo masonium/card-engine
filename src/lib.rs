@@ -1,9 +1,9 @@
-pub mod germanwhist;
 pub mod cards;
-pub mod learning;
+pub mod germanwhist;
 pub mod hand_belief;
+pub mod learning;
 
-pub use germanwhist::engine::{GameEvent, Round, Action, ActionError};
+pub use germanwhist::engine::{Action, ActionError, GameEvent, Round};
 pub use germanwhist::state::GameState;
-pub use learning::neural_net::{NeuralNet, LayerDesc, ActivationFunction};
 pub use hand_belief::HandBelief;
+pub use learning::neural_net::{ActivationFunction, LayerDesc, NeuralNet};

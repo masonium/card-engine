@@ -1,8 +1,8 @@
-use crate::germanwhist::{self, Action, ActionError, Round, PlayerState, ScoringRules};
+use crate::germanwhist::{self, Action, ActionError, PlayerState, Round, ScoringRules};
 
 use crate::learning::model::{LearningModel, LearningModelError};
 use ndarray::prelude::*;
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
 pub struct SarsaLambdaParameters {
     lambda: f32,
@@ -37,12 +37,13 @@ impl SarsaPlayer {
     }
 
     /// Choose an epsilon-greedy action.
-    fn epsilon_greedy_action<M: LearningModel>(&self,
-                                               model: &M,
-                                               eps: f32,
-                                               actions: &[Action],
-                                               mut sa: ArrayViewMut<f32, Ix1>)
-                                               -> Action {
+    fn epsilon_greedy_action<M: LearningModel>(
+        &self,
+        model: &M,
+        eps: f32,
+        actions: &[Action],
+        mut sa: ArrayViewMut<f32, Ix1>,
+    ) -> Action {
         assert_eq!(sa.dim(), PlayerState::state_action_size());
 
         // epsilon-greedy state-choosing
@@ -51,7 +52,8 @@ impl SarsaPlayer {
 
         // choose a random action with probability epsilon
         if r < eps {
-            let random_action = rng.choose(actions)
+            let random_action = rng
+                .choose(actions)
                 .expect("must have positive number of actions");
             self.state
                 .state_action_vector(sa.view_mut(), true, Some(random_action));
@@ -64,20 +66,19 @@ impl SarsaPlayer {
 
     /// Fill in the state action input `sa` most beneficial action of those provided in the
     /// current state, returning the Q-value at that state.
-    pub fn greedy_action<M: LearningModel>(&self,
-                                           model: &M,
-                                           actions: &[Action],
-                                           mut sa: ArrayViewMut<f32, Ix1>)
-                                           -> Action {
+    pub fn greedy_action<M: LearningModel>(
+        &self,
+        model: &M,
+        actions: &[Action],
+        mut sa: ArrayViewMut<f32, Ix1>,
+    ) -> Action {
         let (max_action, _) = actions
             .iter()
-            .zip(actions
-                     .iter()
-                     .map(|a| {
-                              self.state
-                                  .state_action_vector(sa.view_mut(), false, Some(a));
-                              model.evaluate_q(&sa.view())
-                          }))
+            .zip(actions.iter().map(|a| {
+                self.state
+                    .state_action_vector(sa.view_mut(), false, Some(a));
+                model.evaluate_q(&sa.view())
+            }))
             .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
             .expect("action list should not be empty");
 
@@ -94,23 +95,26 @@ pub struct SarsaLambda<M: LearningModel> {
 }
 
 impl<M: LearningModel> SarsaLambda<M> {
-    pub fn new(rules: ScoringRules,
-               model: M,
-               param: SarsaLambdaParameters)
-               -> Result<SarsaLambda<M>, LearningModelError> {
-        let players = [SarsaPlayer::new(PlayerState::new(0), model.num_parameters()),
-                       SarsaPlayer::new(PlayerState::new(1), model.num_parameters())];
+    pub fn new(
+        rules: ScoringRules,
+        model: M,
+        param: SarsaLambdaParameters,
+    ) -> Result<SarsaLambda<M>, LearningModelError> {
+        let players = [
+            SarsaPlayer::new(PlayerState::new(0), model.num_parameters()),
+            SarsaPlayer::new(PlayerState::new(1), model.num_parameters()),
+        ];
 
         if PlayerState::state_size() + PlayerState::action_size() != model.input_size() {
             return Err(LearningModelError::MismatchedSize);
         }
 
         Ok(SarsaLambda {
-               players,
-               engine: Round::new(rules),
-               model,
-               param,
-           })
+            players,
+            engine: Round::new(rules),
+            model,
+            param,
+        })
     }
 
     pub fn current_model(&self) -> &M {
@@ -138,22 +142,26 @@ impl<M: LearningModel> SarsaLambda<M> {
 
             // choose the epsilon-greedy action for that player.
             let possible_actions = self.engine.possible_actions();
-            let chosen_action = self.players[active].epsilon_greedy_action(&self.model,
-                                                                           self.param.eps,
-                                                                           &possible_actions,
-                                                                           player_action.view_mut());
+            let chosen_action = self.players[active].epsilon_greedy_action(
+                &self.model,
+                self.param.eps,
+                &possible_actions,
+                player_action.view_mut(),
+            );
 
             // evaluate the gradient for the state-action pair
-            let q_predict = self.model
+            let q_predict = self
+                .model
                 .evaluate_q_grad(&player_action.view(), grad.view_mut());
 
             // update the model from the previous turn
             if dual_train || active == 0 {
                 {
                     let player = &self.players[active];
-                    self.model
-                        .update_weights(self.param.gamma * q_predict - player.last_q,
-                                        &player.e_trace);
+                    self.model.update_weights(
+                        self.param.gamma * q_predict - player.last_q,
+                        &player.e_trace,
+                    );
                 }
 
                 // update the eligibility trace
@@ -175,10 +183,19 @@ impl<M: LearningModel> SarsaLambda<M> {
         }
 
         // Once the game is over, perform the final update based on the game result.
-        let winner = self.engine.winner().expect("must be a winner at game-over phase.");
+        let winner = self
+            .engine
+            .winner()
+            .expect("must be a winner at game-over phase.");
         let loser = 1 - winner;
-        self.model.update_weights(1.0 - self.players[winner].last_q, &self.players[winner].e_trace);
-        self.model.update_weights(0.0 - self.players[loser].last_q, &self.players[loser].e_trace);
+        self.model.update_weights(
+            1.0 - self.players[winner].last_q,
+            &self.players[winner].e_trace,
+        );
+        self.model.update_weights(
+            0.0 - self.players[loser].last_q,
+            &self.players[loser].e_trace,
+        );
         Ok(())
     }
 }

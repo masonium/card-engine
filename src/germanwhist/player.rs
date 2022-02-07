@@ -1,10 +1,10 @@
+use crate::cards::prelude::*;
+use crate::germanwhist::engine::{Action, GameEvent};
 /// Player state representation
 use crate::hand_belief::HandBelief;
+use itertools::Itertools;
 use ndarray::prelude::*;
 use std::collections::HashSet;
-use crate::germanwhist::engine::{GameEvent, Action};
-use crate::cards::prelude::*;
-use itertools::Itertools;
 use std::fmt;
 
 /// Representation of current state for learning value function.
@@ -28,16 +28,17 @@ pub struct PlayerState {
 
 impl PlayerState {
     pub fn new(id: usize) -> PlayerState {
-        PlayerState { player_id: id,
-                      hand: HashSet::new(),
-                      oppo: HandBelief::new(),
-                      active: 0,
-                      trump: Suit::Hearts,
-                      revealed: None,
-                      leading_card: None,
-                      played_cards: HashSet::new(),
-                      score: [0, 0],
-                      suit_order: [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades],
+        PlayerState {
+            player_id: id,
+            hand: HashSet::new(),
+            oppo: HandBelief::new(),
+            active: 0,
+            trump: Suit::Hearts,
+            revealed: None,
+            leading_card: None,
+            played_cards: HashSet::new(),
+            score: [0, 0],
+            suit_order: [Suit::Clubs, Suit::Diamonds, Suit::Hearts, Suit::Spades],
         }
     }
 
@@ -78,7 +79,7 @@ impl PlayerState {
                 for card in &self.hand {
                     self.oppo.card_seen(card);
                 }
-            },
+            }
             Action(ref action) => {
                 if action.player == self.player_id {
                     self.hand.remove(&action.card);
@@ -98,19 +99,21 @@ impl PlayerState {
                     self.leading_card = Some(action.card);
                 }
                 self.active = 1 - action.player;
-            },
+            }
             Card(card) => {
                 if card.player == self.player_id {
-                    let c = card.card.expect("Player always knows what card that player gets.");
+                    let c = card
+                        .card
+                        .expect("Player always knows what card that player gets.");
                     self.hand.insert(c);
                     self.oppo.card_seen(&c);
                 } else {
                     match card.card {
                         Some(ref c) => self.oppo.card_drawn(c),
-                        None => self.oppo.random_cards_drawn(1)
+                        None => self.oppo.random_cards_drawn(1),
                     }
                 }
-            },
+            }
 
             Trick(ref trick) => {
                 self.leading_card = None;
@@ -153,9 +156,15 @@ impl PlayerState {
         };
 
         // whose turn it is
-        state_view[0] = if self.active == self.player_id { 1.0 } else { -1.0 };
+        state_view[0] = if self.active == self.player_id {
+            1.0
+        } else {
+            -1.0
+        };
 
-        fn score_to_state(x: usize) -> f32 { x as f32 * 2.0 / 13.0 - 1.0 }
+        fn score_to_state(x: usize) -> f32 {
+            x as f32 * 2.0 / 13.0 - 1.0
+        }
 
         // current score (scaled to -1.0 -> 1.0)
         state_view[1] = score_to_state(self.score[0]);
@@ -170,8 +179,14 @@ impl PlayerState {
     }
 
     /// Return a vector representing the state-action pair, for the current state and provided action.
-    pub fn state_action_vector(&self, state_action_view: ArrayViewMut<f32, Ix1>, eval_state: bool, action: Option<&Action>) {
-        let (state_view, mut action_view) = state_action_view.split_at(Axis(0), self.state_vector_size());
+    pub fn state_action_vector(
+        &self,
+        state_action_view: ArrayViewMut<f32, Ix1>,
+        eval_state: bool,
+        action: Option<&Action>,
+    ) {
+        let (state_view, mut action_view) =
+            state_action_view.split_at(Axis(0), self.state_vector_size());
         if !eval_state {
             self.state_vector(state_view);
         }
@@ -186,7 +201,11 @@ impl PlayerState {
     }
 
     /// Translate a card into a state sub-vector, based on the current suit order
-    fn card_to_vector(x: &mut ArrayViewMut<f32, Ix1>, card: &Option<BasicCard>, suit_order: &[Suit]) {
+    fn card_to_vector(
+        x: &mut ArrayViewMut<f32, Ix1>,
+        card: &Option<BasicCard>,
+        suit_order: &[Suit],
+    ) {
         assert_eq!(x.dim(), 52);
         x.fill(-1.0);
         if let Some(ref c) = card {
@@ -195,8 +214,7 @@ impl PlayerState {
     }
 
     /// Translate the opponent belief set to a state vector
-    fn oppo_to_vector(mut x: ArrayViewMut<f32, Ix1>,
-                      hb: &HandBelief, suit_order: &[Suit]) {
+    fn oppo_to_vector(mut x: ArrayViewMut<f32, Ix1>, hb: &HandBelief, suit_order: &[Suit]) {
         assert_eq!(x.dim(), 52);
         for c in BasicCard::all() {
             x[Self::card_index(&c, suit_order)] = hb.p(&c) * 2.0 - 1.0;
@@ -204,8 +222,11 @@ impl PlayerState {
     }
 
     /// Cards to vector
-    fn cards_to_vector(mut x: ArrayViewMut<f32, Ix1>,
-                       card: &HashSet<BasicCard>, suit_order: &[Suit]) {
+    fn cards_to_vector(
+        mut x: ArrayViewMut<f32, Ix1>,
+        card: &HashSet<BasicCard>,
+        suit_order: &[Suit],
+    ) {
         assert_eq!(x.dim(), 52);
         x.fill(-1.0);
         for c in card {
@@ -214,15 +235,18 @@ impl PlayerState {
     }
 
     /// Return the order of the suits as they should be represented in the state vector.
-    fn update_suit_order(&mut self)  {
+    fn update_suit_order(&mut self) {
         let mut suits = self.suit_order;
         suits.sort_by_key(|s| {
             // trump comes first
-            (if *s == self.trump { 0 } else { 1 },
-             // then, highest card count
-             self.hand.iter().filter(|c| c.suit == *s).count(),
-             // normally ordinal as tie-breaker
-             s.ord()) });
+            (
+                if *s == self.trump { 0 } else { 1 },
+                // then, highest card count
+                self.hand.iter().filter(|c| c.suit == *s).count(),
+                // normally ordinal as tie-breaker
+                s.ord(),
+            )
+        });
         self.suit_order = suits;
     }
 
@@ -231,7 +255,6 @@ impl PlayerState {
         v.sort_by_key(|c| Self::card_index(c, &self.suit_order));
         v.iter().map(|x| format!("{}", x)).join(" ")
     }
-
 }
 
 impl fmt::Display for PlayerState {
@@ -245,7 +268,12 @@ impl fmt::Display for PlayerState {
             writeln!(fmt, "Leading Card: {}", c)?;
         }
 
-        writeln!(fmt, "Score: {}-{}", self.score[self.player_id], self.score[1-self.player_id])?;
+        writeln!(
+            fmt,
+            "Score: {}-{}",
+            self.score[self.player_id],
+            self.score[1 - self.player_id]
+        )?;
         writeln!(fmt, "Hand: {}", &self.format_hand())?;
         writeln!(fmt, "Opposition:\n{}", self.oppo)
     }

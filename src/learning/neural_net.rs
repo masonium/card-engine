@@ -1,8 +1,8 @@
+use itertools::{izip, Itertools};
 use ndarray::prelude::*;
 use ndarray::{Data, DataMut, Zip};
-use ndarray_rand::{F32, RandomExt};
+use ndarray_rand::{RandomExt, F32};
 use rand::distributions;
-use itertools::{Itertools, izip};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActivationFunction {
@@ -10,7 +10,7 @@ pub enum ActivationFunction {
     Sigmoid,
     SymmetricSigmoid,
     ReLU,
-    Exp
+    Exp,
 }
 
 fn activate_exponential(x: f32) -> f32 {
@@ -29,12 +29,15 @@ fn activate_ss(x: f32) -> f32 {
     SS_FSCALE * (SS_XSCALE * x).tanh()
 }
 fn activate_relu(x: f32) -> f32 {
-    if x > 0.0 { x } else { 0.0 }
+    if x > 0.0 {
+        x
+    } else {
+        0.0
+    }
 }
 
 fn grad_linear(_x: f32, _f: f32) -> f32 {
     1.0
-
 }
 fn grad_exponential(_x: f32, f: f32) -> f32 {
     f
@@ -47,7 +50,11 @@ fn grad_ss(_x: f32, f: f32) -> f32 {
     SS_XSCALE * (SS_FSCALE - f * f / SS_FSCALE)
 }
 fn grad_relu(x: f32, _f: f32) -> f32 {
-    if x >= 0.0 { 1.0 } else { 0.0 }
+    if x >= 0.0 {
+        1.0
+    } else {
+        0.0
+    }
 }
 
 impl ActivationFunction {
@@ -69,7 +76,7 @@ impl ActivationFunction {
             Sigmoid => grad_logistic,
             SymmetricSigmoid => grad_ss,
             ReLU => grad_relu,
-            Exp => grad_exponential
+            Exp => grad_exponential,
         }
     }
 }
@@ -101,12 +108,14 @@ struct Layer {
 }
 
 /// take the outer-product of a and b, applying it to c
-pub fn outer_product<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix2>,
-                             a: &ArrayBase<Ta, Ix1>,
-                             b: &ArrayBase<Tb, Ix1>)
-    where Ta: Data<Elem = f32>,
-          Tb: Data<Elem = f32>,
-          Tc: DataMut<Elem = f32>
+pub fn outer_product<Ta, Tb, Tc>(
+    c: &mut ArrayBase<Tc, Ix2>,
+    a: &ArrayBase<Ta, Ix1>,
+    b: &ArrayBase<Tb, Ix1>,
+) where
+    Ta: Data<Elem = f32>,
+    Tb: Data<Elem = f32>,
+    Tc: DataMut<Elem = f32>,
 {
     for (mut row, ai) in izip!(c.outer_iter_mut(), a) {
         assert_eq!(row.dim(), b.dim());
@@ -116,28 +125,32 @@ pub fn outer_product<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix2>,
 
 // Quick matrix-vector multiplication
 // c = A * b
-pub fn mat_vec_mul<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix1>,
-                           a: &ArrayBase<Ta, Ix2>,
-                           b: &ArrayBase<Tb, Ix1>)
-    where Ta: Data<Elem = f32>,
-          Tb: Data<Elem = f32>,
-          Tc: DataMut<Elem = f32>
+pub fn mat_vec_mul<Ta, Tb, Tc>(
+    c: &mut ArrayBase<Tc, Ix1>,
+    a: &ArrayBase<Ta, Ix2>,
+    b: &ArrayBase<Tb, Ix1>,
+) where
+    Ta: Data<Elem = f32>,
+    Tb: Data<Elem = f32>,
+    Tc: DataMut<Elem = f32>,
 {
     assert_eq!(a.dim().0, c.dim());
     assert_eq!(a.dim().1, b.dim());
-    
+
     for (ci, ar) in izip!(c, a.outer_iter()) {
         *ci = ar.dot(b);
     }
 }
 
 // c = A^t * b
-fn mat_t_vec_mul<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix1>,
-                             a: &ArrayBase<Ta, Ix2>,
-                             b: &ArrayBase<Tb, Ix1>)
-    where Ta: Data<Elem = f32>,
-          Tb: Data<Elem = f32>,
-          Tc: DataMut<Elem = f32>
+fn mat_t_vec_mul<Ta, Tb, Tc>(
+    c: &mut ArrayBase<Tc, Ix1>,
+    a: &ArrayBase<Ta, Ix2>,
+    b: &ArrayBase<Tb, Ix1>,
+) where
+    Ta: Data<Elem = f32>,
+    Tb: Data<Elem = f32>,
+    Tc: DataMut<Elem = f32>,
 {
     assert_eq!(a.dim().0, b.dim());
     assert_eq!(a.dim().1, c.dim());
@@ -150,8 +163,10 @@ fn mat_t_vec_mul<Ta, Tb, Tc>(c: &mut ArrayBase<Tc, Ix1>,
 impl Layer {
     pub fn from_desc(desc: &LayerDesc) -> Layer {
         let std = (desc.num_outputs as f64).sqrt();
-        let m = Array::random((desc.num_outputs, desc.num_inputs),
-                              F32(distributions::Normal::new(0.0, std)));
+        let m = Array::random(
+            (desc.num_outputs, desc.num_inputs),
+            F32(distributions::Normal::new(0.0, std)),
+        );
         // let m = Array::linspace(0.0, 1.0, desc.num_inputs * desc.num_outputs)
         //     .into_shape((desc.num_outputs, desc.num_inputs)).unwrap();
         let bias = Array::zeros(desc.num_outputs);
@@ -180,11 +195,10 @@ impl Layer {
     }
 
     /// Evaulate input, placing the result into output.
-    pub fn evaluate_onto<T1, T2>(&self,
-                                 input: &ArrayBase<T1, Ix1>,
-                                 output: &mut ArrayBase<T2, Ix1>)
-        where T1: Data<Elem = f32>,
-              T2: DataMut<Elem = f32>
+    pub fn evaluate_onto<T1, T2>(&self, input: &ArrayBase<T1, Ix1>, output: &mut ArrayBase<T2, Ix1>)
+    where
+        T1: Data<Elem = f32>,
+        T2: DataMut<Elem = f32>,
     {
         assert!(input.dim() == self.num_inputs());
         let f = self.act.af();
@@ -194,44 +208,51 @@ impl Layer {
     }
 
     pub fn evaluate<T1>(&self, input: &ArrayBase<T1, Ix1>) -> Array1<f32>
-        where T1: Data<Elem = f32>
+    where
+        T1: Data<Elem = f32>,
     {
         let mut arr = Array::zeros(self.bias.dim());
         self.evaluate_onto(input, &mut arr);
         arr
     }
 
-    pub fn evaluate_onto_partial_g<T1, T2>(&self,
-                                           input: &ArrayBase<T1, Ix1>,
-                                           output: &mut ArrayBase<T2, Ix1>,
-                                           partial_g: ArrayViewMut<f32, Ix1>)
-        where T1: Data<Elem = f32>,
-              T2: DataMut<Elem = f32>
+    pub fn evaluate_onto_partial_g<T1, T2>(
+        &self,
+        input: &ArrayBase<T1, Ix1>,
+        output: &mut ArrayBase<T2, Ix1>,
+        partial_g: ArrayViewMut<f32, Ix1>,
+    ) where
+        T1: Data<Elem = f32>,
+        T2: DataMut<Elem = f32>,
     {
         let f = self.act.af();
         let g = self.act.agf();
 
         let (dml, mut dbias) = partial_g.split_at(Axis(0), self.m.len());
         let mut dm = dml.into_shape(self.m.dim()).expect("must match.");
-        for (a, r, b, x) in izip!(output.iter_mut(),
-                                  self.m.outer_iter(),
-                                  &self.bias,
-                                  &mut dbias) {
+        for (a, r, b, x) in izip!(
+            output.iter_mut(),
+            self.m.outer_iter(),
+            &self.bias,
+            &mut dbias
+        ) {
             assert_eq!(r.dim(), input.dim());
             let pa = r.dot(input) + b;
             *a = f(pa);
-            *x = g(pa, *a); 
+            *x = g(pa, *a);
         }
 
         // compute the gradient of the weights, with respect to the outputs
         outer_product(&mut dm, &dbias, input); // theta'(pa) * input
     }
 
-    pub fn evaluate_partial_g<T1>(&self,
-                                  input: &ArrayBase<T1, Ix1>,
-                                  partial_g: ArrayViewMut<f32, Ix1>)
-                                  -> Array1<f32>
-        where T1: Data<Elem = f32>
+    pub fn evaluate_partial_g<T1>(
+        &self,
+        input: &ArrayBase<T1, Ix1>,
+        partial_g: ArrayViewMut<f32, Ix1>,
+    ) -> Array1<f32>
+    where
+        T1: Data<Elem = f32>,
     {
         let mut arr = Array::zeros(self.bias.dim());
         self.evaluate_onto_partial_g(input, &mut arr, partial_g);
@@ -240,12 +261,13 @@ impl Layer {
 
     /// Complete the evaluation of the gradient, taking in the
     /// gradient with respect to the outputs.
-    fn complete_g<T: Data<Elem = f32>>(&self,
-                                       de_dout: &ArrayBase<T, Ix1>,
-                                       g: ArrayViewMut<f32, Ix1>)
-                                       -> Array1<f32> {
+    fn complete_g<T: Data<Elem = f32>>(
+        &self,
+        de_dout: &ArrayBase<T, Ix1>,
+        g: ArrayViewMut<f32, Ix1>,
+    ) -> Array1<f32> {
         assert_eq!(de_dout.dim(), self.num_outputs());
-        
+
         let (dml, mut dout_dbias) = g.split_at(Axis(0), self.m.len());
         let mut dout_dm = dml.into_shape(self.m.dim()).expect("must match.");
 
@@ -280,20 +302,20 @@ impl Layer {
             .apply(|a, da| *a += da * rate);
     }
 
-
     #[allow(unused)]
     pub fn dump(&self) {
-        println!("W:\n{}\nb\n{}\n",self.m, self.bias);
+        println!("W:\n{}\nb\n{}\n", self.m, self.bias);
     }
 
     fn weights(&self, v: ArrayViewMut<f32, Ix1>) {
         assert!(v.dim() == self.num_parameters());
         let (mut ml, mut bias) = v.split_at(Axis(0), self.m.len());
 
-        ml.assign(&ArrayView::from_shape(self.m.len(), self.m.as_slice().unwrap()).expect("must match"));
+        ml.assign(
+            &ArrayView::from_shape(self.m.len(), self.m.as_slice().unwrap()).expect("must match"),
+        );
         bias.assign(&self.bias);
     }
-
 }
 
 #[derive(Clone)]
@@ -314,25 +336,37 @@ impl NeuralNet {
     pub fn new(layers: &[LayerDesc], lr: f32) -> Option<NeuralNet> {
         // make sure the layers are valid
         if layers
-               .iter()
-               .tuple_windows::<(_, _)>()
-               .any(|(d1, d2)| d1.num_outputs != d2.num_inputs) {
+            .iter()
+            .tuple_windows::<(_, _)>()
+            .any(|(d1, d2)| d1.num_outputs != d2.num_inputs)
+        {
             return None;
         }
 
         Some(NeuralNet {
             layers: layers.iter().map(Layer::from_desc).collect(),
-            current_rate: lr, ni: 0, 
+            current_rate: lr,
+            ni: 0,
             param: NeuralNetworkParameters { learning_rate: lr },
-             })
+        })
     }
 
     pub fn split_at(mut self, n: usize) -> (NeuralNet, NeuralNet) {
         let b = self.layers.split_off(n);
-        (NeuralNet { layers: self.layers, param: self.param.clone(), 
-                     current_rate: self.current_rate, ni: self.ni },
-         NeuralNet { layers: b, param: self.param, current_rate: self.current_rate,
-                     ni: self.ni})
+        (
+            NeuralNet {
+                layers: self.layers,
+                param: self.param.clone(),
+                current_rate: self.current_rate,
+                ni: self.ni,
+            },
+            NeuralNet {
+                layers: b,
+                param: self.param,
+                current_rate: self.current_rate,
+                ni: self.ni,
+            },
+        )
     }
 
     // Dimensions of the input
@@ -372,30 +406,35 @@ impl NeuralNet {
 
     /// Feed the input forward through the neural networks.
     pub fn evaluate<T1>(&self, input: &ArrayBase<T1, Ix1>) -> Array1<f32>
-        where T1: Data<Elem = f32>
+    where
+        T1: Data<Elem = f32>,
     {
         assert_eq!(input.dim(), self.layers[0].num_inputs());
-        self.layers.iter().fold(input.to_owned(), |x, layer| { 
-            layer.evaluate(&x)
-	})
+        self.layers
+            .iter()
+            .fold(input.to_owned(), |x, layer| layer.evaluate(&x))
     }
 
     /// Evaluate, and internally store the gradient.
-    pub fn evaluate_with_gradient<T1>(&self,
-                                      input: &ArrayBase<T1, Ix1>,
-                                      mut gradient: ArrayViewMut<f32, Ix1>)
-                                      -> Array1<f32>
-        where T1: Data<Elem = f32>
+    pub fn evaluate_with_gradient<T1>(
+        &self,
+        input: &ArrayBase<T1, Ix1>,
+        mut gradient: ArrayViewMut<f32, Ix1>,
+    ) -> Array1<f32>
+    where
+        T1: Data<Elem = f32>,
     {
         assert_eq!(input.dim(), self.layers[0].num_inputs());
         gradient.fill(0.0);
-        
-        let output = self.layers
+
+        let output = self
+            .layers
             .iter()
             .fold((input.to_owned(), gradient.view_mut()), |(x, gv), layer| {
                 let (g, ogv) = gv.split_at(Axis(0), layer.num_parameters());
                 (layer.evaluate_partial_g(&x, g), ogv)
-            }).0;
+            })
+            .0;
 
         //println!("half-way: {:8.5}", gradient);
 
@@ -416,16 +455,13 @@ impl NeuralNet {
     pub fn update_weights(&mut self, err: f32, w: ArrayView<f32, Ix1>) {
         self.ni += 1;
         let lre = self.param.learning_rate * err * 1.0 / (1.0 + 0.001 * (self.ni as f32));
-        self.layers
-            .iter_mut()
-            .fold(w, |weights, layer| {
-                let (g, mw) = weights.split_at(Axis(0), layer.num_parameters());
-                layer.weight_step(lre, g);
-                mw
-            });
+        self.layers.iter_mut().fold(w, |weights, layer| {
+            let (g, mw) = weights.split_at(Axis(0), layer.num_parameters());
+            layer.weight_step(lre, g);
+            mw
+        });
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -447,7 +483,6 @@ mod tests {
         test_grad(ActivationFunction::Sigmoid);
     }
 
-
     #[test]
     fn test_sym_sigmoid() {
         test_grad(ActivationFunction::SymmetricSigmoid);
@@ -464,6 +499,4 @@ mod tests {
             assert!((g_est - g_actual).abs() < 1e-3);
         }
     }
-
-
 }
