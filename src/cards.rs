@@ -1,3 +1,4 @@
+use once_cell::sync::Lazy;
 use termion::color;
 use std::str::FromStr;
 use std::fmt;
@@ -82,12 +83,10 @@ impl fmt::Display for Suit {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use Suit::*;
 
-        lazy_static! {
-            static ref RED: String = format!("{}", color::Fg(color::Red));
-            static ref GREEN: String = format!("{}", color::Fg(color::Green));
-            static ref BLUE: String = format!("{}", color::Fg(color::Blue));
-            static ref RESET: String = format!("{}", color::Fg(color::Reset));
-        }
+	static RED: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Red)));
+        static GREEN: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Green)));
+        static BLUE: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Blue)));
+        static RESET: Lazy<String> = Lazy::new(|| format!("{}", color::Fg(color::Reset)));
 
         let (begin, end) = unsafe {
             match SUIT_COLOR_MODE {

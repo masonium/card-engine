@@ -1,6 +1,7 @@
 /// modules for storing player and opponent model
 use std::collections::HashMap;
-use cards::prelude::*;
+use itertools::{izip, iproduct};
+use crate::cards::prelude::*;
 use std::fmt;
 use std::cmp;
 use ndarray::prelude::*;

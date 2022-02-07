@@ -97,7 +97,7 @@ fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usi
 
     let mut ps = PlayerState::new(0);
 
-    let players: [Box<Player>; 2] = [Box::new(BasicPlayer::new(r)), Box::new(RandomPlayer::new())];
+    let players: [Box<dyn Player>; 2] = [Box::new(BasicPlayer::new(r)), Box::new(RandomPlayer::new())];
 
     let events = round.start_round(start);
     for ev in &events[0] {
@@ -144,7 +144,7 @@ fn basic_random_game() -> f32 {
     let mut round = Round::new((0, 1));
     let mut ps = PlayerState::new(0);
 
-    let players: [Box<Player>; 2] = [Box::new(BasicPlayer::new(None)), Box::new(RandomPlayer::new())];
+    let players: [Box<dyn Player>; 2] = [Box::new(BasicPlayer::new(None)), Box::new(RandomPlayer::new())];
 
     let events = round.start_round(None);
     for ev in &events[0] {
@@ -197,7 +197,7 @@ fn test_against<P: Player>(nn: &NeuralNet, oppo: P) -> f32 {
         ps.state.on_event(ev);
     }
 
-    /// start the game
+    // start the game
     let mut actions = eng.possible_actions();
     let mut sa = Array::zeros(ps.state.state_vector_size() + ps.state.action_vector_size());
 
@@ -248,7 +248,7 @@ fn main() {
         if i % 1000 == 0 {
             println!("{}", time::now().strftime("%H:%M:%S").ok().unwrap());
         }
-        sl.train_on_episode(false);
+        sl.train_on_episode(false).expect("training failure");
     }
 
     //play_random_game(0, Some(Rank::Ace), true);

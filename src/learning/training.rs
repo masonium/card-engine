@@ -1,6 +1,6 @@
-use germanwhist::{self, Action, ActionError, Round, PlayerState, ScoringRules};
+use crate::germanwhist::{self, Action, ActionError, Round, PlayerState, ScoringRules};
 
-use learning::model::{LearningModel, LearningModelError};
+use crate::learning::model::{LearningModel, LearningModelError};
 use ndarray::prelude::*;
 use rand::{Rng, thread_rng};
 

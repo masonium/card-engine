@@ -2,7 +2,7 @@ use ndarray::prelude::*;
 use ndarray::{Data, DataMut, Zip};
 use ndarray_rand::{F32, RandomExt};
 use rand::distributions;
-use itertools::Itertools;
+use itertools::{Itertools, izip};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActivationFunction {

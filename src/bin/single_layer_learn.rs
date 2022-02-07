@@ -1,11 +1,6 @@
 #![allow(unused)]
-extern crate card_engine;
-extern crate rand;
-extern crate ndarray;
-extern crate clap;
-#[macro_use]
-extern crate lazy_static;
 
+use once_cell::sync::Lazy;
 use ndarray::prelude::*;
 use card_engine::learning::neural_net::*;
 use rand::{Rng, thread_rng};
@@ -16,34 +11,29 @@ use clap::{App, Arg};
 const FL: ActivationFunction = ActivationFunction::Sigmoid;
 
 fn f1(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
-    lazy_static! {
-        static ref A: Array<f32, Ix1> = arr1(&[0.3, 0.4, -0.5, 0.8, 0.2]);
-    }
+    static A: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[0.3, 0.4, -0.5, 0.8, 0.2]));
     arr1(&[FL.af()(v.dot(&A) - 0.11)])
 }
 
 fn f1w(v: &ArrayView<f32, Ix1>) -> Array<f32,Ix1> {
-    lazy_static! {
-        static ref A: Array<f32, Ix2> = arr2(&[[0.3, 0.4, -0.5, 0.8, 0.2],
-                                               [-0.2, 0.6, 0.3, 0.1, 0.1]]);
-        static ref b: Array<f32, Ix1> = arr1(&[-0.071, 0.4]);
-    }
+    static A: Lazy<Array<f32, Ix2>> = Lazy::new(|| arr2(&[[0.3, 0.4, -0.5, 0.8, 0.2],
+                                               [-0.2, 0.6, 0.3, 0.1, 0.1]]));
+    static B: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[-0.071, 0.4]));;
     let f = FL.af();
-    let mut x = b.to_owned();
+    let mut x = B.to_owned();
     general_mat_vec_mul(1.0, &A, &v, 1.0, &mut x);
     x.map(|r| f(*r))
 }
 
 
 fn f2(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
-    lazy_static! {
-        static ref A1: Array<f32, Ix2> = arr2(&[[0.3, 0.4, -0.5, 0.8, 0.2],
+    static A1: Lazy<Array<f32, Ix2>> = Lazy::new(|| arr2(&[[0.3, 0.4, -0.5, 0.8, 0.2],
                                                 [0.14, -0.4, -0.5, 0.28, 0.2],
-                                                [0.56, 0.4, 0.75, -0.1, -0.2]]);
-        static ref B1: Array<f32, Ix1> = arr1(&[0.3, 0.4, -0.5]);
+                                                [0.56, 0.4, 0.75, -0.1, -0.2]]));
+    static B1: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[0.3, 0.4, -0.5]));
 
-        static ref A2: Array<f32, Ix1> = arr1(&[1.0, -0.2, 0.5]);
-    }
+    static A2: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[1.0, -0.2, 0.5]));
+
     const B2: f32 = -0.12;
 
     let mut l1: ArrayBase<_, Ix1> = B1.to_owned();
@@ -53,14 +43,12 @@ fn f2(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
 }
 
 fn f2s(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
-    lazy_static! {
-        static ref A1: Array<f32, Ix2> = arr2(&[[0.1, 0.2],
+    static A1: Lazy<Array<f32, Ix2>> = Lazy::new(|| arr2(&[[0.1, 0.2],
                                                 [0.3, 0.4],
-                                                [0.5, 0.6]]);
-        static ref B1: Array<f32, Ix1> = arr1(&[0.7, 0.8, 0.9]);
+                                                [0.5, 0.6]]));
+    static B1: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[0.7, 0.8, 0.9]));;
 
-        static ref A2: Array<f32, Ix1> = arr1(&[0.6, -0.4, -0.2]);
-    }
+    static A2: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[0.6, -0.4, -0.2]));;
     const B2: f32 = -0.12;
 
     let mut l1: ArrayBase<_, Ix1> = B1.to_owned();

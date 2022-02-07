@@ -1,6 +1,6 @@
 use ndarray::prelude::*;
 use ndarray::Data;
-use learning::neural_net::NeuralNet;
+use crate::learning::neural_net::NeuralNet;
 
 
 pub enum LearningModelError {

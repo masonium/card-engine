@@ -1,4 +1,4 @@
-use cards::{BasicCard, Suit};
+use crate::cards::{BasicCard, Suit};
 
 use super::state::{GameState, PlayerView};
 use super::phase::{GamePhase, PlayingPhase, GameOverPhase};

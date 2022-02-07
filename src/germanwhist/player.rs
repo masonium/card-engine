@@ -1,9 +1,9 @@
 /// Player state representation
-use hand_belief::HandBelief;
+use crate::hand_belief::HandBelief;
 use ndarray::prelude::*;
 use std::collections::HashSet;
-use germanwhist::engine::{GameEvent, Action};
-use cards::prelude::*;
+use crate::germanwhist::engine::{GameEvent, Action};
+use crate::cards::prelude::*;
 use itertools::Itertools;
 use std::fmt;
 
@@ -186,7 +186,7 @@ impl PlayerState {
     }
 
     /// Translate a card into a state sub-vector, based on the current suit order
-    fn card_to_vector(mut x: &mut ArrayViewMut<f32, Ix1>, card: &Option<BasicCard>, suit_order: &[Suit]) {
+    fn card_to_vector(x: &mut ArrayViewMut<f32, Ix1>, card: &Option<BasicCard>, suit_order: &[Suit]) {
         assert_eq!(x.dim(), 52);
         x.fill(-1.0);
         if let &Some(ref c) = card {
