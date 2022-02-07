@@ -35,7 +35,7 @@ impl Player for RandomPlayer {
         let cards = view.playable_cards();
         let card_range = Range::new(0, cards.len());
         let ri = card_range.ind_sample(&mut rng) as usize;
-        cards[ri].clone()
+        cards[ri]
     }
 }
 
@@ -62,28 +62,28 @@ impl Player for BasicPlayer {
 
         match &view.revealed {
             // playing for cards
-            &Some(ref c)  => {
+            Some(ref c)  => {
 
                 // go all-out for trumps, kings, or better
                 if self.try_to_win(c, view.trump) {
                     // Play the highest non-trump, otherwise play the lowest trump
-                    cards.iter().rev().find(|p| p.suit != view.trump)
-                        .unwrap_or(&cards[0]).clone()
+                    *cards.iter().rev().find(|p| p.suit != view.trump)
+                        .unwrap_or(&cards[0])
                 } else {
                     // try to ditch
-                    cards.iter().find(|p| p.suit != view.trump).unwrap_or(&cards[0]).clone()
+                    *cards.iter().find(|p| p.suit != view.trump).unwrap_or(&cards[0])
                 }
             },
 
             // playing for points
-            &None => {
+            None => {
                 match &view.leading_card {
-                    &Some(ref lc) => {
+                    Some(ref lc) => {
                         // play the lowest card to beat it, otherwise ditch
-                        cards.iter().find(|p| view.wins_against(lc, p))
-                            .unwrap_or(&cards[0]).clone()
+                        *cards.iter().find(|p| view.wins_against(lc, p))
+                            .unwrap_or(&cards[0])
                     },
-                    &None => { cards[0].clone() }
+                    None => { cards[0] }
                 }
             }
         }
@@ -106,7 +106,7 @@ fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usi
     let mut actions = round.possible_actions();
 
     let mut iter = 1;
-    while actions.len() > 0 {
+    while !actions.is_empty() {
         println!("+++++ Round: {} +++++", iter);
         iter += 1;
         println!("{}", ps);
@@ -137,7 +137,7 @@ fn play_random_game(start: usize, r: Option<Rank>, verbose: bool) -> Result<[usi
     }
     println!("{}", ps);
 
-    Ok(round.get_state().score.clone())
+    Ok(round.get_state().score)
 }
 
 fn basic_random_game() -> f32 {
@@ -152,7 +152,7 @@ fn basic_random_game() -> f32 {
     }
     let mut actions = round.possible_actions();
 
-    while actions.len() > 0 {
+    while !actions.is_empty() {
         let action = {
             let player_view = round.active_player_view();
             let card = players[player_view.player].play_card(&player_view);
@@ -201,7 +201,7 @@ fn test_against<P: Player>(nn: &NeuralNet, oppo: P) -> f32 {
     let mut actions = eng.possible_actions();
     let mut sa = Array::zeros(ps.state.state_vector_size() + ps.state.action_vector_size());
 
-    while actions.len() > 0 {
+    while !actions.is_empty() {
 
         let action = if eng.active_player() == 0 {
             let c = oppo.play_card(&eng.active_player_view());

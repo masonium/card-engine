@@ -30,10 +30,10 @@ impl CardState {
     // state.
     pub fn p(&self) -> f32 {
         match self {
-            &CardState::Played => 0.0,
-            &CardState::Void => 0.0,
-            &CardState::Owns => 1.0,
-            &CardState::Prob(ref p) => *p
+            CardState::Played => 0.0,
+            CardState::Void => 0.0,
+            CardState::Owns => 1.0,
+            CardState::Prob(ref p) => *p
         }
     }
 
@@ -49,10 +49,7 @@ impl CardState {
 
     /// Return true iff the state is the `Prob` enum
     pub fn is_prob(&self) -> bool {
-        match self {
-            &CardState::Prob(_) => true,
-            _ => false
-        }
+        matches!(self, CardState::Prob(_))
     }
 }
 
@@ -85,14 +82,20 @@ pub struct HandBelief {
     probs: HashMap<BasicCard, CardState>,
 }
 
-impl HandBelief {
-    pub fn new() -> HandBelief {
+impl Default for HandBelief {
+    fn default() -> Self {
         let mut probs = HashMap::new();
         for card in BasicCard::all() {
-            probs.insert(card.clone(), CardState::Void);
+            probs.insert(card, CardState::Void);
         }
 
-        HandBelief { probs: probs }
+        HandBelief { probs }
+    }
+}
+
+impl HandBelief {
+    pub fn new() -> HandBelief {
+	Self::default()
     }
 
     /// Reset the entire hand to void.
@@ -128,7 +131,7 @@ impl HandBelief {
     fn distribute_uniformly(&mut self, ec: f32) {
         let nc = self.num_candidates();
         for v in self.probs.values_mut() {
-            if let &mut CardState::Prob(ref mut p) = v {
+            if let CardState::Prob(ref mut p) = v {
                 *p += ec / nc;
             }
         }
@@ -146,7 +149,7 @@ impl HandBelief {
         let p_inc = p_dist / (nc - count) ;
 
         for (card, p) in self.probs.iter_mut() {
-            if let &mut CardState::Prob(ref mut pp) = p {
+            if let CardState::Prob(ref mut pp) = p {
                 if pred(*card) {
                     *pp += p_inc;
                 } else {
@@ -179,7 +182,7 @@ impl HandBelief {
         self.transfer_probability_to(|c| c.suit != suit);
         for (k, v) in self.probs.iter_mut() {
             if k.suit == suit {
-                if let &mut CardState::Prob(_) = v {
+                if let CardState::Prob(_) = v {
                     *v = CardState::Void;
                 }
             }

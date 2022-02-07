@@ -52,9 +52,9 @@ impl Suit {
     }
 }
 
-impl Into<Suit> for u8 {
-    fn into(self) -> Suit {
-        ALL_SUITS[self as usize]
+impl From<u8> for Suit {
+    fn from(x: u8) -> Suit {
+        ALL_SUITS[x as usize]
     }
 }
 
@@ -155,9 +155,9 @@ impl Rank {
     }
 }
 
-impl Into<Rank> for u8 {
-    fn into(self) -> Rank {
-        ALL_RANKS[self as usize]
+impl From<u8> for Rank {
+    fn from(x: u8) -> Rank {
+        ALL_RANKS[x as usize]
     }
 }
 
@@ -276,9 +276,9 @@ impl fmt::Display for Card {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Card::*;
         match self {
-            &BigJoker => write!(f, "JJ"),
-            &SmallJoker => write!(f, "jj"),
-            &Card::Basic(ref basic) => write!(f, "{}", basic)
+            BigJoker => write!(f, "JJ"),
+            SmallJoker => write!(f, "jj"),
+            Card::Basic(ref basic) => write!(f, "{}", basic)
         }
     }
 }
@@ -292,9 +292,15 @@ pub struct BasicDeck {
     cards: Vec<BasicCard>
 }
 
+impl Default for BasicDeck {
+    fn default() -> Self {
+        BasicDeck { cards: BasicCard::all() }
+    }
+}
+
 impl BasicDeck {
     pub fn new() -> BasicDeck {
-        BasicDeck { cards: BasicCard::all() }
+        Self::default()
     }
 
     /// Shuffle the remaining cards in the deck
@@ -369,7 +375,7 @@ pub fn format_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>, fmt: &mut f
             write!(fmt, "{}{}: {:5}", rank, suit, *map.get(&bc).unwrap())?;
             write!(fmt, " | ")?;
         }
-        writeln!(fmt, "")?;
+        writeln!(fmt)?;
     }
     writeln!(fmt, "{}*", &col_head)
 }
@@ -387,7 +393,7 @@ pub fn print_card_map<T: fmt::Display>(map: &HashMap<BasicCard, T>) {
             print!("{}{}: {:5}", rank, suit, *map.get(&bc).unwrap());
             print!(" | ");
         }
-        println!("");
+        println!();
     }
     println!("{}*", &col_head);
 }

@@ -28,7 +28,7 @@ pub trait LearningModel {
 
 impl LearningModel for NeuralNet {
     fn evaluate_q(&self, view: &ArrayView<f32, Ix1>) -> f32 {
-        self.evaluate(&view)[0]
+        self.evaluate(view)[0]
     }
 
     fn evaluate_q_grad(&self, p: &ArrayView<f32, Ix1>, grad: ArrayViewMut<f32, Ix1>) -> f32 {

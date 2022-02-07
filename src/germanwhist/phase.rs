@@ -43,8 +43,8 @@ impl GamePhase for PlayingPhase {
             // this is the first card played
             gs.player_view_mut(action.player).remove_card(&action.card)?;
 
-            events[0].push(GameEvent::Action(action.clone()));
-            events[1].push(GameEvent::Action(action.clone()));
+            events[0].push(GameEvent::Action(action));
+            events[1].push(GameEvent::Action(action));
 
             gs.played = Some(action.card);
 
@@ -55,18 +55,17 @@ impl GamePhase for PlayingPhase {
                 let mut player = gs.player_view_mut(action.player);
 
                 // If the player has the suit, the card must match
-                if player.has_suit(&leading_card.suit) {
-                    if action.card.suit != leading_card.suit {
+                if player.has_suit(&leading_card.suit) &&
+                    action.card.suit != leading_card.suit {
                         return Err(ActionError::NotFollowingSuit);
-                    }
                 }
 
                 player.remove_card(&action.card)?;
             }
 
-            let action_ev = GameEvent::Action(action.clone());
+            let action_ev = GameEvent::Action(action);
             events[0].push(action_ev.clone());
-            events[1].push(action_ev.clone());
+            events[1].push(action_ev);
 
             let follow = gs.active;
             let lead = 1 - gs.active;
@@ -78,7 +77,7 @@ impl GamePhase for PlayingPhase {
             };
             let loser = 1 - winner;
 
-            let mut cards_played = [leading_card.clone(), action.card.clone()];
+            let mut cards_played = [leading_card, action.card];
             let mut cards_received = [None, None];
 
             if lead == 1 {
@@ -90,10 +89,10 @@ impl GamePhase for PlayingPhase {
                 // Give players their new cards
                 {
                     let r = gs.revealed.take().expect("must be a revealed card");
-                    gs.player_view_mut(winner).add_card(r.clone());
+                    gs.player_view_mut(winner).add_card(r);
 
                     cards_received[winner] = Some(r);
-                    let rec_ev = GameEvent::Card(CardEvent { player: winner, card: Some(r.clone()) });
+                    let rec_ev = GameEvent::Card(CardEvent { player: winner, card: Some(r) });
 
                     // both players know what the winning player got.
                     events[winner].push(rec_ev.clone());
@@ -102,11 +101,11 @@ impl GamePhase for PlayingPhase {
 
                 {
                     let draw = gs.draw().expect("must have a card left after trick");
-                    gs.player_view_mut(loser).add_card(draw.clone());
+                    gs.player_view_mut(loser).add_card(draw);
                     cards_received[loser] = Some(draw);
 
                     // the loser knows what they got, but the winner doesn't
-                    events[loser].push(GameEvent::Card(CardEvent { player: loser, card: Some(draw.clone()) }));
+                    events[loser].push(GameEvent::Card(CardEvent { player: loser, card: Some(draw) }));
                     events[winner].push(GameEvent::Card(CardEvent { player: loser, card: None }));
                 }
 
@@ -145,7 +144,7 @@ impl GamePhase for PlayingPhase {
     fn format(&self, gs: &GameState) -> String {
         match (&gs.revealed, &gs.played) {
             (&None, _) => {
-                format!("End of Phase.")
+                "End of Phase.".to_string()
             },
             (&Some(ref reveal), &Some(ref card)) => {
                 format!("Playing for {}\nPlayer {} played {}, Player {} to respond.",
@@ -180,7 +179,7 @@ impl GamePhase for GameOverPhase {
     }
 
     fn format(&self, _: &GameState) -> String {
-        format!("Game Over.")
+        "Game Over.".to_string()
     }
 
     fn is_game_over(&self) -> bool {

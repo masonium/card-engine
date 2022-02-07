@@ -18,8 +18,7 @@ pub fn format_state(gs: &GameState) -> String {
 }
 
 pub fn format_round(round: &Round) -> String {
-    format!("{}", &format_state(round.get_state()))
-        + &format!("{}\n", round.get_phase().format(round.get_state()))
+    format!("{}{}\n", &format_state(round.get_state()), round.get_phase().format(round.get_state()))
 }
 
 pub fn format_action(action: &Action) -> String {

@@ -121,9 +121,9 @@ impl<M: LearningModel> SarsaLambda<M> {
         // start a new round
         let ev = self.engine.start_round(None);
 
-        for i in 0..2 {
+        for (i, evs) in ev.iter().enumerate() {
             self.players[i].e_trace.fill(0.0);
-            for e in &ev[i] {
+            for e in evs {
                 self.players[i].state.on_event(e)
             }
         }
@@ -165,10 +165,10 @@ impl<M: LearningModel> SarsaLambda<M> {
                 }
             }
             // play the chosen action
-            let evs = self.engine.play_action(chosen_action)?;
+            let _ = self.engine.play_action(chosen_action)?;
 
-            for i in 0..2 {
-                for ev in &evs[i] {
+            for (i, evs) in ev.iter().enumerate() {
+                for ev in evs {
                     self.players[i].state.on_event(ev);
                 }
             }

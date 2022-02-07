@@ -76,7 +76,7 @@ impl Round {
     pub fn new(rules: ScoringRules) -> Round {
         let state = GameState::new(0);
         let phase: Box<dyn GamePhase> = Box::new(GameOverPhase{});
-        Round { state, phase: phase, rules }
+        Round { state, phase, rules }
     }
 
     pub fn start_round<T: Into<Option<usize>>>(&mut self, starting_player: T) -> [Vec<GameEvent>; 2] {
@@ -84,11 +84,11 @@ impl Round {
         let start = starting_player.into().unwrap_or(if thread_rng().gen::<bool>() { 1 } else { 0 });
         self.state = GameState::new(start);
 
-        let p0 = StartRoundEvent{ hand: self.state.hands[0].iter().cloned().collect(),
+        let p0 = StartRoundEvent{ hand: self.state.hands[0].to_vec(),
                                   revealed: self.state.revealed.expect("start of round"),
                                   trump: self.state.trump,
                                   starting_player: start };
-        let p1 = StartRoundEvent{ hand: self.state.hands[1].iter().cloned().collect(), ..p0 };
+        let p1 = StartRoundEvent{ hand: self.state.hands[1].to_vec(), ..p0 };
 
         [vec![GameEvent::Start(p0)], vec![GameEvent::Start(p1)]]
     }

@@ -63,7 +63,7 @@ impl PlayerState {
     pub fn on_event(&mut self, ev: &GameEvent) {
         use GameEvent::*;
         match ev {
-            &Start(ref start) => {
+            Start(ref start) => {
                 self.hand = start.hand.iter().cloned().collect();
                 self.trump = start.trump;
                 self.active = start.starting_player;
@@ -79,7 +79,7 @@ impl PlayerState {
                     self.oppo.card_seen(card);
                 }
             },
-            &Action(ref action) => {
+            Action(ref action) => {
                 if action.player == self.player_id {
                     self.hand.remove(&action.card);
                 } else {
@@ -99,7 +99,7 @@ impl PlayerState {
                 }
                 self.active = 1 - action.player;
             },
-            &Card(card) => {
+            Card(card) => {
                 if card.player == self.player_id {
                     let c = card.card.expect("Player always knows what card that player gets.");
                     self.hand.insert(c);
@@ -112,7 +112,7 @@ impl PlayerState {
                 }
             },
 
-            &Trick(ref trick) => {
+            Trick(ref trick) => {
                 self.leading_card = None;
                 self.revealed = trick.revealed;
                 self.active = trick.active_player;
@@ -175,7 +175,7 @@ impl PlayerState {
         if !eval_state {
             self.state_vector(state_view);
         }
-        if let Some(ref act) = action {
+        if let Some(act) = action {
             self.action_vector(act, &mut action_view);
         }
     }
@@ -189,7 +189,7 @@ impl PlayerState {
     fn card_to_vector(x: &mut ArrayViewMut<f32, Ix1>, card: &Option<BasicCard>, suit_order: &[Suit]) {
         assert_eq!(x.dim(), 52);
         x.fill(-1.0);
-        if let &Some(ref c) = card {
+        if let Some(ref c) = card {
             x[Self::card_index(c, suit_order)] = 1.0;
         }
     }

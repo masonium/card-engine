@@ -376,8 +376,8 @@ impl NeuralNet {
     {
         assert_eq!(input.dim(), self.layers[0].num_inputs());
         self.layers.iter().fold(input.to_owned(), |x, layer| { 
-            let y = layer.evaluate(&x);
-            y })
+            layer.evaluate(&x)
+	})
     }
 
     /// Evaluate, and internally store the gradient.

@@ -21,7 +21,7 @@ fn f1w(v: &ArrayView<f32, Ix1>) -> Array<f32,Ix1> {
     static B: Lazy<Array<f32, Ix1>> = Lazy::new(|| arr1(&[-0.071, 0.4]));;
     let f = FL.af();
     let mut x = B.to_owned();
-    general_mat_vec_mul(1.0, &A, &v, 1.0, &mut x);
+    general_mat_vec_mul(1.0, &A, v, 1.0, &mut x);
     x.map(|r| f(*r))
 }
 
@@ -37,7 +37,7 @@ fn f2(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
     const B2: f32 = -0.12;
 
     let mut l1: ArrayBase<_, Ix1> = B1.to_owned();
-    general_mat_vec_mul(1.0, &A1, &v, 1.0, &mut l1);
+    general_mat_vec_mul(1.0, &A1, v, 1.0, &mut l1);
     let x1 = l1.map(|x| FL.af()(*x));
     arr1(&[FL.af()(x1.dot(&A2) + B2)])
 }
@@ -52,7 +52,7 @@ fn f2s(v: &ArrayView<f32, Ix1>) -> Array<f32, Ix1> {
     const B2: f32 = -0.12;
 
     let mut l1: ArrayBase<_, Ix1> = B1.to_owned();
-    general_mat_vec_mul(1.0, &A1, &v, 1.0, &mut l1);
+    general_mat_vec_mul(1.0, &A1, v, 1.0, &mut l1);
     let x1 = l1.map(|x| FL.af()(*x));
     arr1(&[FL.af()(x1.dot(&A2) + B2)])
 }

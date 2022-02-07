@@ -51,13 +51,13 @@ impl GameState {
     }
 
     /// Return a mutable view of the player's hand.
-    pub fn player_view_mut<'a>(&'a mut self, player: usize) -> PlayerViewMut<'a> {
+    pub fn player_view_mut(& mut self, player: usize) -> PlayerViewMut {
         PlayerViewMut { hand: &mut self.hands[player] }
     }
 
     /// Return an immutable view of the player's hand.
-    pub fn player_view<'a>(&'a self, player: usize) -> PlayerView<'a> {
-        PlayerView::from_state(player, &self)
+    pub fn player_view(&self, player: usize) -> PlayerView {
+        PlayerView::from_state(player, self)
     }
 
 
@@ -152,24 +152,24 @@ impl<'a> PlayerView<'a> {
 
         PlayerView { player,
                      hand: &gs.hands[player],
-                     revealed: gs.revealed.clone(),
-                     leading_card: gs.played.clone(),
+                     revealed: gs.revealed,
+                     leading_card: gs.played,
                      trump: gs.trump,
-                     score: gs.score.clone() }
+                     score: gs.score }
     }
 
     /// Return the set of cards playable in the current state.
     ///
     /// Assumes the player is active.
     pub fn playable_cards(&self) -> Vec<BasicCard> {
-        match &self.leading_card {
+        match self.leading_card {
             // Second player must follow suit, if possible.
-            &Some(ref c) if self.has_suit(&c.suit) =>
+            Some(ref c) if self.has_suit(&c.suit) =>
                 self.hand.iter().filter(|x| x.suit == c.suit)
                 .cloned().collect()
                 ,
             // Otherwise, can play anything
-            _ => self.hand.iter().cloned().collect()
+            _ => self.hand.to_vec()
         }
     }
 
